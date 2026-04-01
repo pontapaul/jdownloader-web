@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { getJdVersion } from '../api/client'
+import { getJdVersion, setApiBaseUrl } from '../api/client'
 import { getSpeedLimit, setSpeedLimit } from '../api/config'
 import { useDownloadsStore } from './downloads'
 
@@ -9,10 +9,27 @@ export interface Toast {
   message: string
 }
 
+export interface ConnectionTestResult {
+  ok: boolean
+  version?: number
+  error?: string
+}
+
 export const useAppStore = defineStore('app', () => {
   const connected = ref(false)
-  const apiBaseUrl = ref(import.meta.env.VITE_JD_API_URL ?? 'http://localhost:3128')
-  const pollInterval = ref(2000)
+  const apiBaseUrl = ref(
+    localStorage.getItem('apiBaseUrl') ??
+    (import.meta.env.VITE_JD_API_URL as string | undefined) ??
+    'http://localhost:3128',
+  )
+  const pollInterval = ref(
+    parseInt(localStorage.getItem('pollInterval') ?? '2000', 10),
+  )
+
+  // Sync the API client's base URL with the persisted value on startup
+  setApiBaseUrl(apiBaseUrl.value)
+
+  const connectionTestResult = ref<ConnectionTestResult | null>(null)
 
   const globalSpeed = computed(() => {
     const downloadsStore = useDownloadsStore()
@@ -25,6 +42,33 @@ export const useAppStore = defineStore('app', () => {
       connected.value = true
     } catch {
       connected.value = false
+    }
+  }
+
+  async function saveApiBaseUrl(url: string): Promise<void> {
+    apiBaseUrl.value = url
+    localStorage.setItem('apiBaseUrl', url)
+    setApiBaseUrl(url)
+    await testConnection()
+  }
+
+  function savePollInterval(ms: number): void {
+    pollInterval.value = ms
+    localStorage.setItem('pollInterval', String(ms))
+  }
+
+  async function testConnection(): Promise<void> {
+    connectionTestResult.value = null
+    try {
+      const info = await getJdVersion()
+      connected.value = true
+      connectionTestResult.value = { ok: true, version: info.version }
+    } catch (err) {
+      connected.value = false
+      connectionTestResult.value = {
+        ok: false,
+        error: err instanceof Error ? err.message : 'Errore sconosciuto',
+      }
     }
   }
 
@@ -72,9 +116,13 @@ export const useAppStore = defineStore('app', () => {
     connected,
     apiBaseUrl,
     pollInterval,
+    connectionTestResult,
     globalSpeed,
     speedLimit,
     checkConnection,
+    saveApiBaseUrl,
+    savePollInterval,
+    testConnection,
     fetchSpeedLimit,
     applySpeedLimit,
     showAddLinksModal,
