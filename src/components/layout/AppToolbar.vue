@@ -46,6 +46,7 @@ const router = useRouter()
     <button
       class="p-1 rounded hover:bg-gray-300 active:bg-gray-400 text-gray-700 disabled:opacity-40"
       title="Aggiungi link"
+      @click="appStore.showAddLinksModal = true"
     >
       <svg viewBox="0 0 24 24" class="w-5 h-5"><path fill="currentColor" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
     </button>
