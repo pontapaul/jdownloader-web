@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { getJdVersion } from '../api/client'
+import { getSpeedLimit, setSpeedLimit } from '../api/config'
 import { useDownloadsStore } from './downloads'
 
 export const useAppStore = defineStore('app', () => {
@@ -22,7 +23,33 @@ export const useAppStore = defineStore('app', () => {
     }
   }
 
+  /** Current speed limit in bytes/s; 0 = unlimited. */
+  const speedLimit = ref(0)
+
+  async function fetchSpeedLimit(): Promise<void> {
+    try {
+      speedLimit.value = await getSpeedLimit()
+    } catch {
+      // ignore — JD2 may not support this config key
+    }
+  }
+
+  async function applySpeedLimit(bytesPerSec: number): Promise<void> {
+    await setSpeedLimit(bytesPerSec)
+    speedLimit.value = bytesPerSec
+  }
+
   const showAddLinksModal = ref(false)
 
-  return { connected, apiBaseUrl, pollInterval, globalSpeed, checkConnection, showAddLinksModal }
+  return {
+    connected,
+    apiBaseUrl,
+    pollInterval,
+    globalSpeed,
+    speedLimit,
+    checkConnection,
+    fetchSpeedLimit,
+    applySpeedLimit,
+    showAddLinksModal,
+  }
 })
