@@ -65,6 +65,22 @@ export const useDownloadsStore = defineStore('downloads', () => {
     await fetchLinks()
   }
 
+  async function pauseAll(): Promise<void> {
+    const ids = links.value.filter(l => l.enabled && !l.finished).map(l => l.uuid)
+    if (ids.length) {
+      await setEnabled(ids, false)
+      await fetchLinks()
+    }
+  }
+
+  async function resumeAll(): Promise<void> {
+    const ids = links.value.filter(l => !l.enabled && !l.finished).map(l => l.uuid)
+    if (ids.length) {
+      await setEnabled(ids, true)
+      await fetchLinks()
+    }
+  }
+
   function handleVisibilityChange(): void {
     if (document.visibilityState === 'visible') {
       fetchLinks()
@@ -97,6 +113,8 @@ export const useDownloadsStore = defineStore('downloads', () => {
     fetchLinks,
     pauseLink,
     resumeLink,
+    pauseAll,
+    resumeAll,
     removeLink,
     forceStart,
     cleanFinished,
