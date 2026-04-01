@@ -18,6 +18,8 @@ export interface DownloadPackage {
 export const useDownloadsStore = defineStore('downloads', () => {
   const links = ref<DownloadLink[]>([])
   let timer: ReturnType<typeof setInterval> | null = null
+  /** UUIDs of links that were already finished on the last fetch. */
+  const prevFinishedUuids = new Set<number>()
 
   /** True when every non-finished link is disabled (all paused/stopped). */
   const allPaused = computed(() =>
@@ -42,7 +44,22 @@ export const useDownloadsStore = defineStore('downloads', () => {
 
   async function fetchLinks(): Promise<void> {
     try {
-      links.value = await queryLinks()
+      const fresh = await queryLinks()
+      // Detect newly completed downloads and fire toasts
+      const appStore = useAppStore()
+      if (appStore.showCompletionToasts) {
+        for (const link of fresh) {
+          if (link.finished && !prevFinishedUuids.has(link.uuid)) {
+            appStore.addToast(`Download completato: ${link.name}`)
+          }
+        }
+      }
+      // Update the set of known-finished UUIDs
+      prevFinishedUuids.clear()
+      for (const link of fresh) {
+        if (link.finished) prevFinishedUuids.add(link.uuid)
+      }
+      links.value = fresh
     } catch {
       // Silently fail; connection status is managed by useAppStore
     }
