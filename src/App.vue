@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { onMounted } from 'vue'
-import { RouterView } from 'vue-router'
 import { useAppStore } from './stores/app'
 import { useDownloadsStore } from './stores/downloads'
+import AppLayout from './components/layout/AppLayout.vue'
 
 const appStore = useAppStore()
 const downloadsStore = useDownloadsStore()
@@ -14,5 +14,5 @@ onMounted(async () => {
 </script>
 
 <template>
-  <RouterView />
+  <AppLayout />
 </template>
