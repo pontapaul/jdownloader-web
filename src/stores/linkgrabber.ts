@@ -19,8 +19,8 @@ export const useLinkGrabberStore = defineStore('linkgrabber', () => {
     }
   }
 
-  async function addLinks(urls: string[], packageName?: string): Promise<void> {
-    await apiAddLinks(urls, packageName)
+  async function addLinks(urls: string[], packageName?: string, destinationFolder?: string): Promise<void> {
+    await apiAddLinks(urls, packageName, destinationFolder)
     await fetchLinks()
   }
 

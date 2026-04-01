@@ -53,13 +53,15 @@ export function queryGrabberLinks(params?: QueryGrabberLinksParams): Promise<Gra
  *
  * @param urls - List of URLs to add
  * @param packageName - Optional package name to group the links under
+ * @param destinationFolder - Optional download path override
  */
-export function addLinks(urls: string[], packageName?: string): Promise<void> {
+export function addLinks(urls: string[], packageName?: string, destinationFolder?: string): Promise<void> {
   return jdFetch('/linkgrabberv2/addLinks', {
     method: 'POST',
     body: JSON.stringify({
       links: urls.join('\n'),
       ...(packageName ? { packageName } : {}),
+      ...(destinationFolder ? { destinationFolder } : {}),
     }),
   })
 }
