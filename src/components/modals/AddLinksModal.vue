@@ -10,12 +10,22 @@ const emit = defineEmits<{
 const store = useLinkGrabberStore()
 const urls = ref('')
 const packageName = ref('')
+const downloadPath = ref('')
 const loading = ref(false)
+const errorMessage = ref('')
+const successMessage = ref('')
 
 function close() {
   urls.value = ''
   packageName.value = ''
+  downloadPath.value = ''
+  errorMessage.value = ''
+  successMessage.value = ''
   emit('update:modelValue', false)
+}
+
+function onKeydown(event: KeyboardEvent) {
+  if (event.key === 'Escape') close()
 }
 
 async function submit() {
@@ -25,9 +35,18 @@ async function submit() {
     .filter(Boolean)
   if (!lines.length) return
   loading.value = true
+  errorMessage.value = ''
+  successMessage.value = ''
   try {
-    await store.addLinks(lines, packageName.value.trim() || undefined)
-    close()
+    await store.addLinks(
+      lines,
+      packageName.value.trim() || undefined,
+      downloadPath.value.trim() || undefined,
+    )
+    successMessage.value = `${lines.length} link aggiunti al grabber`
+    setTimeout(close, 1200)
+  } catch (err) {
+    errorMessage.value = err instanceof Error ? err.message : 'Errore durante l\'aggiunta dei link'
   } finally {
     loading.value = false
   }
@@ -40,6 +59,7 @@ async function submit() {
       v-if="modelValue"
       class="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
       @click.self="close"
+      @keydown="onKeydown"
     >
       <div class="bg-white rounded shadow-xl w-full max-w-md mx-4 text-sm">
         <div class="flex items-center justify-between px-4 py-2 border-b border-gray-300 bg-gray-100 rounded-t">
@@ -58,6 +78,7 @@ async function submit() {
               class="w-full border border-gray-300 rounded px-2 py-1.5 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-blue-400 resize-none"
               placeholder="https://example.com/file.zip&#10;https://example.com/file2.zip"
               autofocus
+              @keydown.escape="close"
             />
           </div>
           <div>
@@ -67,8 +88,26 @@ async function submit() {
               type="text"
               class="w-full border border-gray-300 rounded px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-400"
               placeholder="Lascia vuoto per automatico"
+              @keydown.escape="close"
             />
           </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-700 mb-1">Cartella di download (opzionale)</label>
+            <input
+              v-model="downloadPath"
+              type="text"
+              class="w-full border border-gray-300 rounded px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-400"
+              placeholder="Lascia vuoto per percorso predefinito"
+              @keydown.escape="close"
+            />
+          </div>
+
+          <p v-if="errorMessage" class="text-xs text-red-600 bg-red-50 border border-red-200 rounded px-2 py-1.5">
+            {{ errorMessage }}
+          </p>
+          <p v-if="successMessage" class="text-xs text-green-700 bg-green-50 border border-green-200 rounded px-2 py-1.5">
+            {{ successMessage }}
+          </p>
         </div>
 
         <div class="flex justify-end gap-2 px-4 py-2 border-t border-gray-200 bg-gray-50 rounded-b">
