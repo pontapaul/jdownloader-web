@@ -19,6 +19,14 @@ export const useDownloadsStore = defineStore('downloads', () => {
   const links = ref<DownloadLink[]>([])
   let timer: ReturnType<typeof setInterval> | null = null
 
+  /** True when every non-finished link is disabled (all paused/stopped). */
+  const allPaused = computed(() =>
+    links.value.length > 0 && links.value.every(l => l.finished || !l.enabled),
+  )
+
+  /** True when at least one link is actively downloading. */
+  const hasActiveDownloads = computed(() => links.value.some(l => l.running))
+
   const packages = computed<DownloadPackage[]>(() => {
     const map = new Map<number, DownloadLink[]>()
     for (const link of links.value) {
@@ -81,6 +89,14 @@ export const useDownloadsStore = defineStore('downloads', () => {
     }
   }
 
+  async function stopAll(): Promise<void> {
+    const ids = links.value.filter(l => !l.finished).map(l => l.uuid)
+    if (ids.length) {
+      await setEnabled(ids, false)
+      await fetchLinks()
+    }
+  }
+
   function handleVisibilityChange(): void {
     if (document.visibilityState === 'visible') {
       fetchLinks()
@@ -110,11 +126,14 @@ export const useDownloadsStore = defineStore('downloads', () => {
   return {
     links,
     packages,
+    allPaused,
+    hasActiveDownloads,
     fetchLinks,
     pauseLink,
     resumeLink,
     pauseAll,
     resumeAll,
+    stopAll,
     removeLink,
     forceStart,
     cleanFinished,
