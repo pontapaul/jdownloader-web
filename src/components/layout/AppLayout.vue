@@ -3,6 +3,10 @@ import { RouterView } from 'vue-router'
 import AppToolbar from './AppToolbar.vue'
 import AppTabs from './AppTabs.vue'
 import AppStatusBar from './AppStatusBar.vue'
+import AddLinksModal from '@/components/modals/AddLinksModal.vue'
+import { useAppStore } from '@/stores/app'
+
+const appStore = useAppStore()
 </script>
 
 <template>
@@ -13,5 +17,6 @@ import AppStatusBar from './AppStatusBar.vue'
       <RouterView />
     </main>
     <AppStatusBar />
+    <AddLinksModal v-model="appStore.showAddLinksModal" />
   </div>
 </template>

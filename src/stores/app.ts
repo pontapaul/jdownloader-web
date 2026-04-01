@@ -22,5 +22,7 @@ export const useAppStore = defineStore('app', () => {
     }
   }
 
-  return { connected, apiBaseUrl, pollInterval, globalSpeed, checkConnection }
+  const showAddLinksModal = ref(false)
+
+  return { connected, apiBaseUrl, pollInterval, globalSpeed, checkConnection, showAddLinksModal }
 })
