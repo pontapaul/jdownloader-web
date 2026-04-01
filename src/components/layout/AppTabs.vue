@@ -6,7 +6,7 @@ const router = useRouter()
 </script>
 
 <template>
-  <div class="flex bg-gray-100 border-b border-gray-400 shrink-0">
+  <div class="hidden md:flex bg-gray-100 border-b border-gray-400 shrink-0">
     <button
       class="px-4 py-1.5 text-sm border-r border-gray-400 transition-colors"
       :class="route.name === 'downloads'

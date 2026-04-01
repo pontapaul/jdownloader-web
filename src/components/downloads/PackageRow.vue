@@ -102,20 +102,20 @@ const rowClass = computed(() => (props.selected ? 'bg-blue-100' : 'bg-gray-50 ho
         <span class="text-gray-400 font-normal shrink-0">({{ pkg.links.length }})</span>
       </div>
     </td>
-    <td class="px-1 py-1 text-right whitespace-nowrap hidden sm:table-cell text-gray-600">
+    <td class="px-1 py-1 text-right whitespace-nowrap hidden md:table-cell text-gray-600">
       {{ totalSize > 0 ? formatSize(totalSize) : '—' }}
     </td>
-    <td class="px-1 py-1 hidden sm:table-cell text-gray-400">—</td>
-    <td class="px-1 py-1 text-center hidden md:table-cell text-gray-600">
+    <td class="px-1 py-1 hidden md:table-cell text-gray-400">—</td>
+    <td class="px-1 py-1 text-center hidden lg:table-cell text-gray-600">
       {{ activeConnections > 0 ? activeConnections : '—' }}
     </td>
-    <td class="px-1 py-1 whitespace-nowrap hidden sm:table-cell" :class="statusClass">
+    <td class="px-1 py-1 whitespace-nowrap" :class="statusClass">
       {{ statusText }}
     </td>
     <td class="px-1 py-1 text-right whitespace-nowrap hidden md:table-cell text-gray-600 font-mono">
       {{ totalSpeed > 0 ? formatSpeed(totalSpeed) : '—' }}
     </td>
-    <td class="px-1 py-1 text-right whitespace-nowrap hidden md:table-cell text-gray-600 font-mono">
+    <td class="px-1 py-1 text-right whitespace-nowrap hidden lg:table-cell text-gray-600 font-mono">
       {{ maxEta > 0 ? formatEta(maxEta) : '—' }}
     </td>
     <td class="px-1 py-1 text-right whitespace-nowrap hidden md:table-cell text-gray-600 font-mono">
@@ -124,6 +124,6 @@ const rowClass = computed(() => (props.selected ? 'bg-blue-100' : 'bg-gray-50 ho
     <td class="px-1 py-1 min-w-[80px]">
       <ProgressBar :value="progress" :color-class="progressColorClass" />
     </td>
-    <td class="px-1 py-1 hidden lg:table-cell text-gray-400">—</td>
+    <td class="px-1 py-1 hidden lg:table-cell text-gray-400 truncate max-w-[80px]">—</td>
   </tr>
 </template>

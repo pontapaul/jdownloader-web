@@ -56,13 +56,13 @@ const rowClass = computed(() =>
     <td class="px-1 py-1 truncate max-w-0 w-full" :title="link.name">
       {{ link.name }}
     </td>
-    <td class="px-1 py-1 text-right whitespace-nowrap hidden sm:table-cell text-gray-600">
+    <td class="px-1 py-1 text-right whitespace-nowrap hidden md:table-cell text-gray-600">
       {{ link.bytesTotal > 0 ? formatSize(link.bytesTotal) : '—' }}
     </td>
-    <td class="px-1 py-1 truncate max-w-[100px] hidden sm:table-cell text-gray-600">
+    <td class="px-1 py-1 truncate max-w-[100px] hidden md:table-cell text-gray-600">
       {{ link.host || '—' }}
     </td>
-    <td class="px-1 py-1 whitespace-nowrap hidden sm:table-cell" :class="availabilityClass">
+    <td class="px-1 py-1 whitespace-nowrap" :class="availabilityClass">
       {{ availabilityLabel }}
     </td>
   </tr>

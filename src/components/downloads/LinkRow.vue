@@ -64,22 +64,22 @@ const progress = computed(() => {
     <td class="pl-6 pr-1 py-0.5 truncate max-w-0 w-full" :title="link.name">
       <span :class="statusClass">{{ link.name }}</span>
     </td>
-    <td class="px-1 py-0.5 text-right whitespace-nowrap hidden sm:table-cell text-gray-600">
+    <td class="px-1 py-0.5 text-right whitespace-nowrap hidden md:table-cell text-gray-600">
       {{ link.bytesTotal > 0 ? formatSize(link.bytesTotal) : '—' }}
     </td>
-    <td class="px-1 py-0.5 truncate max-w-[100px] hidden sm:table-cell text-gray-600">
+    <td class="px-1 py-0.5 truncate max-w-[100px] hidden md:table-cell text-gray-600">
       {{ link.host || '—' }}
     </td>
-    <td class="px-1 py-0.5 text-center hidden md:table-cell text-gray-600">
+    <td class="px-1 py-0.5 text-center hidden lg:table-cell text-gray-600">
       {{ link.running ? '1' : '0' }}
     </td>
-    <td class="px-1 py-0.5 whitespace-nowrap hidden sm:table-cell" :class="statusClass">
+    <td class="px-1 py-0.5 whitespace-nowrap" :class="statusClass">
       {{ link.status || '—' }}
     </td>
     <td class="px-1 py-0.5 text-right whitespace-nowrap hidden md:table-cell text-gray-600 font-mono">
       {{ link.running && link.speed > 0 ? formatSpeed(link.speed) : '—' }}
     </td>
-    <td class="px-1 py-0.5 text-right whitespace-nowrap hidden md:table-cell text-gray-600 font-mono">
+    <td class="px-1 py-0.5 text-right whitespace-nowrap hidden lg:table-cell text-gray-600 font-mono">
       {{ link.running ? formatEta(link.eta) : '—' }}
     </td>
     <td class="px-1 py-0.5 text-right whitespace-nowrap hidden md:table-cell text-gray-600 font-mono">

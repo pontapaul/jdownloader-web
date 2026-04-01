@@ -123,12 +123,12 @@ async function contextAction(action: string) {
       <thead class="sticky top-0 z-10">
         <tr class="bg-gray-200 border-b border-gray-400 text-gray-700 font-medium text-left">
           <th class="pl-7 pr-1 py-1">Nome</th>
-          <th class="px-1 py-1 text-right hidden sm:table-cell">Dimensione</th>
-          <th class="px-1 py-1 hidden sm:table-cell">Hoster</th>
-          <th class="px-1 py-1 text-center hidden md:table-cell">Conn.</th>
-          <th class="px-1 py-1 hidden sm:table-cell">Stato</th>
+          <th class="px-1 py-1 text-right hidden md:table-cell">Dimensione</th>
+          <th class="px-1 py-1 hidden md:table-cell">Hoster</th>
+          <th class="px-1 py-1 text-center hidden lg:table-cell">Conn.</th>
+          <th class="px-1 py-1">Stato</th>
           <th class="px-1 py-1 text-right hidden md:table-cell">Velocità</th>
-          <th class="px-1 py-1 text-right hidden md:table-cell">ETA</th>
+          <th class="px-1 py-1 text-right hidden lg:table-cell">ETA</th>
           <th class="px-1 py-1 text-right hidden md:table-cell">Scaricato</th>
           <th class="px-1 py-1 min-w-[80px]">Progresso</th>
           <th class="px-1 py-1 hidden lg:table-cell">Commento</th>
