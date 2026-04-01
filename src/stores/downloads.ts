@@ -140,6 +140,11 @@ export const useDownloadsStore = defineStore('downloads', () => {
     document.removeEventListener('visibilitychange', handleVisibilityChange)
   }
 
+  function restartPolling(): void {
+    stopPolling()
+    startPolling()
+  }
+
   return {
     links,
     packages,
@@ -156,5 +161,6 @@ export const useDownloadsStore = defineStore('downloads', () => {
     cleanFinished,
     startPolling,
     stopPolling,
+    restartPolling,
   }
 })

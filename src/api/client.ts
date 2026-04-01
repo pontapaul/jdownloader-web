@@ -1,4 +1,9 @@
-const BASE_URL = import.meta.env.VITE_JD_API_URL ?? 'http://localhost:3128'
+let BASE_URL: string = import.meta.env.VITE_JD_API_URL ?? 'http://localhost:3128'
+
+/** Update the API base URL at runtime (called when the user saves settings). */
+export function setApiBaseUrl(url: string): void {
+  BASE_URL = url
+}
 
 /** Thrown when the server returns a non-2xx HTTP response. */
 export class JdApiError extends Error {
