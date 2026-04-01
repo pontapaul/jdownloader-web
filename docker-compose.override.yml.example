@@ -1,0 +1,12 @@
+# Copy this file to docker-compose.override.yml for local development overrides.
+# docker-compose.override.yml is git-ignored.
+#
+# Example: mount a custom nginx config without rebuilding the image
+services:
+  jdownloader-web:
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    # Override the build arg when JD2 is reachable directly during local dev
+    build:
+      args:
+        VITE_JD_API_URL: /api
