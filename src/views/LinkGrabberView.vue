@@ -192,9 +192,9 @@ async function contextAction(action: string) {
               />
             </th>
             <th class="px-1 py-1">Nome</th>
-            <th class="px-1 py-1 text-right hidden sm:table-cell">Dimensione</th>
-            <th class="px-1 py-1 hidden sm:table-cell">Hoster</th>
-            <th class="px-1 py-1 hidden sm:table-cell">Stato</th>
+            <th class="px-1 py-1 text-right hidden md:table-cell">Dimensione</th>
+            <th class="px-1 py-1 hidden md:table-cell">Hoster</th>
+            <th class="px-1 py-1">Stato</th>
           </tr>
         </thead>
         <tbody>

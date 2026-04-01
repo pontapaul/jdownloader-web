@@ -33,11 +33,11 @@ const remainingBytes = computed(() =>
       <span class="text-gray-500">Velocità:</span>
       <span class="ml-1 text-gray-800">{{ formatSpeed(appStore.globalSpeed) }}</span>
     </span>
-    <span title="Dati rimanenti">
+    <span title="Dati rimanenti" class="hidden sm:inline">
       <span class="text-gray-500">Rimanente:</span>
       <span class="ml-1 text-gray-800">{{ remainingBytes > 0 ? formatSize(remainingBytes) : '—' }}</span>
     </span>
-    <span title="Connessioni attive">
+    <span title="Connessioni attive" class="hidden sm:inline">
       <span class="text-gray-500">Connessioni:</span>
       <span class="ml-1 text-gray-800">{{ activeConnections }}</span>
     </span>

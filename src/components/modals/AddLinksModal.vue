@@ -57,11 +57,11 @@ async function submit() {
   <Teleport to="body">
     <div
       v-if="modelValue"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+      class="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40"
       @click.self="close"
       @keydown="onKeydown"
     >
-      <div class="bg-white rounded shadow-xl w-full max-w-md mx-4 text-sm">
+      <div class="bg-white rounded-t-xl sm:rounded-lg shadow-xl w-full sm:max-w-md sm:mx-4 text-sm max-h-[90vh] overflow-y-auto flex flex-col">
         <div class="flex items-center justify-between px-4 py-2 border-b border-gray-300 bg-gray-100 rounded-t">
           <span class="font-semibold text-gray-800">Aggiungi link</span>
           <button class="p-1 rounded hover:bg-gray-200 text-gray-600" @click="close">
