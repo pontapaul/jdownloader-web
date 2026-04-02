@@ -19,6 +19,11 @@ const router = createRouter({
       component: () => import('@/views/LinkGrabberView.vue'),
     },
     {
+      path: '/accounts',
+      name: 'accounts',
+      component: () => import('@/views/AccountsView.vue'),
+    },
+    {
       path: '/settings',
       name: 'settings',
       component: () => import('@/views/SettingsView.vue'),
