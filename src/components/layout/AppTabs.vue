@@ -25,6 +25,15 @@ const router = useRouter()
     >
       Cattura collegamenti
     </button>
+    <button
+      class="px-4 py-1.5 text-sm border-r border-gray-400 transition-colors"
+      :class="route.name === 'accounts'
+        ? 'bg-white text-gray-900 font-medium border-b-2 border-b-blue-500'
+        : 'text-gray-600 hover:bg-gray-200'"
+      @click="router.push('/accounts')"
+    >
+      Account Premium
+    </button>
     <div class="flex-1 border-b border-gray-300"></div>
   </div>
 </template>
