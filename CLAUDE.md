@@ -47,8 +47,18 @@ Base URL: `http://localhost:3128` (configurable via `VITE_JD_API_URL`).
 | POST | `/linkgrabberv2/addLinks` | Add new URLs |
 | POST | `/linkgrabberv2/confirmLinks` | Move grabber links to download queue |
 | POST | `/linkgrabberv2/removeLinks` | Remove from grabber |
+| GET | `/accountsV2/listAccounts` | List all premium accounts with status/traffic |
+| POST | `/accountsV2/addAccount` | Add account (hoster, username, password) |
+| POST | `/accountsV2/removeAccounts` | Remove accounts by ID |
+| POST | `/accountsV2/enableAccounts` | Enable accounts by ID |
+| POST | `/accountsV2/disableAccounts` | Disable accounts by ID |
+| POST | `/accountsV2/refreshAccounts` | Force validity re-check |
 
 All requests are plain JSON over HTTP. No authentication required.
+
+> **Security note**: Premium account credentials (username + password) are sent in plain text to
+> `localhost:3128`. This is acceptable because access is restricted to the VPN only, but be aware
+> that credentials are visible in browser DevTools network traffic.
 
 ## Project structure
 ```
@@ -57,6 +67,7 @@ src/
     client.ts          # base jdFetch() with error handling
     downloads.ts       # typed wrappers for downloadsV2 endpoints
     linkgrabber.ts     # typed wrappers for linkgrabberV2 endpoints
+    accounts.ts        # typed wrappers for accountsV2 endpoints
   components/
     layout/
       AppToolbar.vue
@@ -74,10 +85,12 @@ src/
   views/
     DownloadsView.vue
     LinkGrabberView.vue
+    AccountsView.vue
     SettingsView.vue
   stores/
     downloads.ts       # useDownloadsStore
     linkgrabber.ts     # useLinkGrabberStore
+    accounts.ts        # useAccountsStore
     app.ts             # useAppStore (connection status, settings)
   composables/
     usePolling.ts      # polling logic with Page Visibility API
