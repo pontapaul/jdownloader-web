@@ -6,3 +6,5 @@ dist/
 *.log
 .DS_Store
 docker-compose.override.yml
+jd2-config/
+downloads/
