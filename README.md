@@ -14,6 +14,8 @@ A modern, self-hosted web interface for [JDownloader2](https://jdownloader.org/)
 - Link Grabber tab to add and confirm new URLs
 - Destination picker (movie, TV show + season, other): downloads and extraction happen on a fast
   staging disk, then `jdownloader-mover` moves the extracted content to the library
+- Archive passwords: set one when adding links, retry a failed extraction with a password, answer
+  JD2's password requests, manage the global password list in Settings
 - Bottom status bar: package/link counts, total speed, remaining bytes, active connections
 - Auto-polling every 2 seconds (pauses when browser tab is hidden)
 - Color-coded states: green = downloading, gray = paused, red = error, blue = complete
@@ -60,6 +62,20 @@ staging and the reason appears in its comment (status "Non spostato" in the web 
 
 At startup the mover also sets the JD2 options it relies on: extract next to the archive, delete
 archive files after a successful extraction, default download folder `/output/downloads`.
+
+### Archive passwords
+
+- **Add links**: the optional password goes to JD2 as the package's `extractPassword`.
+- **Failed extraction** (status "Non spostato", "Password" button or context menu on the package):
+  the password is set on the package's archives and the extraction restarts.
+- **JD2 asks for a password** (a retry with a wrong one): the web UI shows the request; "Rinuncia"
+  makes the extraction fail. Without an answer JD2's extraction queue waits up to 10 minutes.
+- **Global list** (Settings → "Password archivi"): JD2 tries it on every archive. Every password
+  typed in the UI is added to it, and JD2 adds the ones that worked by itself.
+
+The mover disables JD2's own password dialog for automatic extractions
+(`AskForUnknownPasswordsEnabled = false`), so an archive with an unknown password fails at once
+instead of holding the queue.
 
 The web container mounts `MOVIES_DIR` and `SHOWS_DIR` read-only: nginx lists folder names under
 `/library/` (never files) so the dialog can suggest existing titles and the latest season.

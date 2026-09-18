@@ -13,6 +13,7 @@ const props = defineProps<{
 
 defineEmits<{
   toggle: []
+  password: []
   select: [event: MouseEvent]
   contextmenu: [event: MouseEvent]
 }>()
@@ -28,6 +29,10 @@ const nameTitle = computed(() =>
   destination.value ? `${packageName.value}\n→ ${destination.value}` : packageName.value,
 )
 const comment = computed(() => props.pkg.info?.comment ?? null)
+/** An archive of the package could not be extracted (usually a missing password). */
+const extractionFailed = computed(() =>
+  props.pkg.links.some(l => l.extractionStatus?.startsWith('ERR')),
+)
 /** jdownloader-mover could not move the package (it explains why in the comment). */
 const moveFailed = computed(() => comment.value?.startsWith('Spostamento:') ?? false)
 
@@ -122,6 +127,14 @@ const rowClass = computed(() => (props.selected ? 'bg-blue-100' : 'bg-gray-50 ho
     </td>
     <td class="px-1 py-1 whitespace-nowrap" :class="statusClass" :title="comment ?? undefined">
       {{ statusText }}
+      <button
+        v-if="extractionFailed"
+        class="ml-1 px-1.5 rounded border border-red-300 text-red-600 font-normal hover:bg-red-50"
+        title="Inserisci la password dell'archivio ed estrai di nuovo"
+        @click.stop="$emit('password')"
+      >
+        Password
+      </button>
     </td>
     <td class="px-1 py-1 text-right whitespace-nowrap hidden md:table-cell text-gray-600 font-mono">
       {{ totalSpeed > 0 ? formatSpeed(totalSpeed) : '—' }}

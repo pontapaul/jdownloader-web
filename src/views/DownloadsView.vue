@@ -3,8 +3,32 @@ import { ref, computed } from 'vue'
 import { useDownloadsStore } from '@/stores/downloads'
 import PackageRow from '@/components/downloads/PackageRow.vue'
 import LinkRow from '@/components/downloads/LinkRow.vue'
+import PasswordModal from '@/components/modals/PasswordModal.vue'
+import { useExtractionStore } from '@/stores/extraction'
 
 const store = useDownloadsStore()
+const extractionStore = useExtractionStore()
+
+// Archive password for a package whose extraction failed
+const passwordPackage = ref<{ uuid: number; name: string } | null>(null)
+const passwordError = ref<string | null>(null)
+
+function askPassword(pkgUuid: number) {
+  const pkg = store.packages.find(p => p.uuid === pkgUuid)
+  passwordError.value = null
+  passwordPackage.value = { uuid: pkgUuid, name: pkg?.info?.name ?? pkg?.links[0]?.name ?? '' }
+}
+
+async function submitPassword(password: string) {
+  if (!passwordPackage.value) return
+  try {
+    await extractionStore.retryWithPassword(passwordPackage.value.uuid, password)
+    passwordPackage.value = null
+    await store.fetchLinks()
+  } catch (err) {
+    passwordError.value = err instanceof Error ? err.message : 'Errore durante l\'estrazione'
+  }
+}
 
 // Expand/collapse per package
 const expandedPackages = ref<Set<number>>(new Set())
@@ -99,6 +123,10 @@ function hideContextMenu() {
 async function contextAction(action: string) {
   const { type, uuid } = contextMenu.value
   hideContextMenu()
+  if (type === 'package' && action === 'password') {
+    askPassword(uuid)
+    return
+  }
   if (type === 'link') {
     if (action === 'resume') await store.resumeLink(uuid)
     else if (action === 'pause') await store.pauseLink(uuid)
@@ -143,6 +171,7 @@ async function contextAction(action: string) {
             @toggle="togglePackage(pkg.uuid)"
             @select="selectPackage(pkg.uuid, $event)"
             @contextmenu="showContextMenu($event, 'package', pkg.uuid)"
+            @password="askPassword(pkg.uuid)"
           />
           <template v-if="expandedPackages.has(pkg.uuid)">
             <LinkRow
@@ -188,6 +217,13 @@ async function contextAction(action: string) {
       >
         Forza avvio
       </button>
+      <button
+        v-if="contextMenu.type === 'package'"
+        class="w-full text-left px-3 py-1.5 hover:bg-gray-100"
+        @click="contextAction('password')"
+      >
+        Password archivio…
+      </button>
       <div class="h-px bg-gray-200 my-1"></div>
       <button
         class="w-full text-left px-3 py-1.5 hover:bg-gray-100 text-red-600"
@@ -196,5 +232,14 @@ async function contextAction(action: string) {
         Rimuovi
       </button>
     </div>
+
+    <PasswordModal
+      :open="passwordPackage !== null"
+      title="Password archivio"
+      :message="`Password per estrarre di nuovo «${passwordPackage?.name}».`"
+      :error="passwordError"
+      @submit="submitPassword"
+      @cancel="passwordPackage = null"
+    />
   </div>
 </template>

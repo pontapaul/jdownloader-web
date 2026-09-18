@@ -1,13 +1,22 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted } from 'vue'
+import { computed, onMounted, onUnmounted } from 'vue'
 import { RouterView, useRoute, useRouter } from 'vue-router'
 import AppToolbar from './AppToolbar.vue'
 import AppTabs from './AppTabs.vue'
 import AppStatusBar from './AppStatusBar.vue'
 import AddLinksModal from '@/components/modals/AddLinksModal.vue'
+import PasswordModal from '@/components/modals/PasswordModal.vue'
 import { useAppStore } from '@/stores/app'
+import { useExtractionStore } from '@/stores/extraction'
+import { usePolling } from '@/composables/usePolling'
 
 const appStore = useAppStore()
+const extractionStore = useExtractionStore()
+
+// JD2 asks for an archive password (e.g. a retry with a wrong one): answer from here,
+// otherwise its extraction queue waits for the desktop GUI dialog
+usePolling(() => extractionStore.fetchPrompts(), 3000)
+const prompt = computed(() => extractionStore.prompts[0] ?? null)
 const route = useRoute()
 const router = useRouter()
 
@@ -56,5 +65,14 @@ onUnmounted(() => window.removeEventListener('keydown', onGlobalKeydown))
       </button>
     </nav>
     <AddLinksModal v-model="appStore.showAddLinksModal" />
+    <PasswordModal
+      :key="prompt?.id"
+      :open="prompt !== null"
+      title="Password archivio"
+      :message="`JDownloader2 chiede la password per l'archivio «${prompt?.archiveName}»: le password provate non sono corrette.`"
+      cancel-text="Rinuncia"
+      @submit="password => prompt && extractionStore.answerPrompt(prompt.id, password)"
+      @cancel="prompt && extractionStore.answerPrompt(prompt.id, null)"
+    />
   </div>
 </template>

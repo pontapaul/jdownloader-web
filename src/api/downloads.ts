@@ -37,6 +37,8 @@ export interface DownloadLink {
   addedDate: number
   /** Comment attached to the link, if any. */
   comment: string | null
+  /** Extraction state of an archive part (`SUCCESSFUL`, `ERROR`, …), `null` if none. */
+  extractionStatus: string | null
 }
 
 /** Query parameters accepted by `/downloadsV2/queryLinks`. */
@@ -59,6 +61,7 @@ const LINK_FIELDS = {
   comment: true,
   enabled: true,
   eta: true,
+  extractionStatus: true,
   finished: true,
   host: true,
   priority: true,
@@ -84,6 +87,7 @@ function normalizeLink(raw: Partial<DownloadLink> & Pick<DownloadLink, 'uuid' | 
     skipped: false,
     addedDate: 0,
     comment: null,
+    extractionStatus: null,
     ...raw,
   }
 }

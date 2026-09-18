@@ -12,6 +12,7 @@ const store = useLinkGrabberStore()
 const { kind, title, show, season, packageName, movies, shows, loadLibrary, destination, reset } =
   useDestination()
 const urls = ref('')
+const password = ref('')
 const loading = ref(false)
 const errorMessage = ref('')
 const successMessage = ref('')
@@ -31,6 +32,7 @@ watch(
 
 function close() {
   urls.value = ''
+  password.value = ''
   reset()
   errorMessage.value = ''
   successMessage.value = ''
@@ -52,7 +54,11 @@ async function submit() {
   errorMessage.value = ''
   successMessage.value = ''
   try {
-    const job = await store.addLinks(lines, target.packageName, target.destinationFolder)
+    const job = await store.addLinks(lines, {
+      packageName: target.packageName,
+      destinationFolder: target.destinationFolder,
+      extractPassword: password.value.trim() || undefined,
+    })
     if (!job) {
       successMessage.value = `${lines.length} link inviati: JD2 li sta ancora analizzando`
       setTimeout(close, 2000)
@@ -170,6 +176,19 @@ async function submit() {
               type="text"
               class="w-full border border-gray-300 rounded px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-400"
               placeholder="Lascia vuoto per automatico"
+              @keydown.escape="close"
+            />
+          </div>
+
+          <div>
+            <label class="block text-xs font-medium text-gray-700 mb-1">Password archivio (opzionale)</label>
+            <input
+              v-model="password"
+              type="text"
+              autocomplete="off"
+              spellcheck="false"
+              class="w-full border border-gray-300 rounded px-2 py-1.5 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-blue-400"
+              placeholder="Viene anche aggiunta alla lista password di JD2"
               @keydown.escape="close"
             />
           </div>

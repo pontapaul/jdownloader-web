@@ -34,6 +34,15 @@ Gotchas:
   the mover checks `extraction/getArchiveInfo` so it does not move unextracted archives.
 - `addLinks` succeeds even when no plugin handles the URLs: they are silently dropped. The dialog
   follows the job with `queryLinkCrawlerJobs` (`crawled`, `unhandled`, …) and reports the outcome.
+- Archive passwords: `addLinks` takes `extractPassword`; a retry is `extraction/setArchiveSettings`
+  (`passwords`) + `extraction/startExtractionNow`. A manual extraction whose passwords are all
+  wrong opens a password dialog even with `AskForUnknownPasswordsEnabled = false`, and the whole
+  extraction queue waits for it: answer via `dialogs/list` / `dialogs/answer`
+  (`{"closereason": "OK", "text": …}` or `{"closereason": "CANCEL"}`). JD2 adds passwords that
+  worked to `PasswordList` by itself, and remembers them per archive (the archive ID comes from the
+  file name). While a password is being tried the link has no `extractionStatus`.
+- JD2 checks a password by the file signature of the extracted content (`PasswordFindOptimization`):
+  test archives must contain real file headers, random bytes look like a wrong password.
 - Right after a JD2 restart the API answers before the linkgrabber is ready: `addLinks` calls in
   the first seconds can be lost or show up late.
 

@@ -1,10 +1,34 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, watch, onMounted } from 'vue'
 import { useAppStore } from '@/stores/app'
 import { useDownloadsStore } from '@/stores/downloads'
+import { useExtractionStore } from '@/stores/extraction'
 
 const appStore = useAppStore()
 const downloadsStore = useDownloadsStore()
+const extractionStore = useExtractionStore()
+
+// Archive passwords
+const newPassword = ref('')
+const passwordsError = ref<string | null>(null)
+
+async function passwordAction(action: () => Promise<void>) {
+  passwordsError.value = null
+  try {
+    await action()
+  } catch (err) {
+    passwordsError.value = err instanceof Error ? err.message : 'Errore di JD2'
+  }
+}
+
+async function addPassword() {
+  const value = newPassword.value.trim()
+  if (!value) return
+  await passwordAction(() => extractionStore.rememberPasswords([value]))
+  newPassword.value = ''
+}
+
+onMounted(() => passwordAction(() => extractionStore.fetchPasswords()))
 
 const apiUrlInput = ref(appStore.apiBaseUrl)
 const pollIntervalInput = ref(appStore.pollInterval)
@@ -85,6 +109,52 @@ watch(() => appStore.pollInterval, (val) => { pollIntervalInput.value = val })
         />
         <span class="text-gray-500">ms (500 – 10 000)</span>
       </label>
+    </section>
+
+    <!-- Archive passwords -->
+    <section class="space-y-2">
+      <h2 class="text-sm font-semibold text-gray-700">Password archivi</h2>
+      <p class="text-xs text-gray-500">
+        JDownloader2 le prova su ogni archivio. Qui finiscono le password inserite aggiungendo link o
+        riprovando un'estrazione, e quelle che JD2 trova da solo.
+      </p>
+      <ul class="border border-gray-200 rounded divide-y divide-gray-100 text-sm">
+        <li
+          v-for="password in extractionStore.passwords"
+          :key="password"
+          class="flex items-center gap-2 px-2 py-1"
+        >
+          <span class="flex-1 font-mono text-xs break-all">{{ password }}</span>
+          <button
+            class="text-xs text-red-600 hover:underline"
+            @click="passwordAction(() => extractionStore.forgetPassword(password))"
+          >
+            Rimuovi
+          </button>
+        </li>
+        <li v-if="extractionStore.passwords.length === 0" class="px-2 py-1 text-xs text-gray-400">
+          Nessuna password salvata
+        </li>
+      </ul>
+      <div class="flex gap-2">
+        <input
+          v-model="newPassword"
+          type="text"
+          autocomplete="off"
+          spellcheck="false"
+          placeholder="Nuova password"
+          class="flex-1 border border-gray-300 rounded px-2 py-1 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-blue-500"
+          @keydown.enter="addPassword"
+        />
+        <button
+          class="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+          :disabled="!newPassword.trim()"
+          @click="addPassword"
+        >
+          Aggiungi
+        </button>
+      </div>
+      <p v-if="passwordsError" class="text-xs text-red-600">{{ passwordsError }}</p>
     </section>
 
     <!-- Notifications -->

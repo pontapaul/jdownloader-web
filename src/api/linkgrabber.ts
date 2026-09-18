@@ -86,19 +86,27 @@ export interface CrawlerJob {
   broken: number
 }
 
+/** Options for {@link addLinks}. */
+export interface AddLinksOptions {
+  /** Package name; JD2 saves to `destinationFolder/packageName`. */
+  packageName?: string
+  /** Download folder (JD2 path). */
+  destinationFolder?: string
+  /** Password of the archives in these links. */
+  extractPassword?: string
+}
+
 /**
  * Submit one or more URLs to the Link Grabber for processing.
  *
  * @param urls - List of URLs to add
- * @param packageName - Optional package name to group the links under
- * @param destinationFolder - Optional download path override
+ * @param options - Package name, destination folder, archive password
  * @returns ID of the crawler job, to follow it with {@link queryCrawlerJob}
  */
-export async function addLinks(urls: string[], packageName?: string, destinationFolder?: string): Promise<number> {
+export async function addLinks(urls: string[], options: AddLinksOptions = {}): Promise<number> {
   const job = await jdCall<{ id: number }>('/linkgrabberv2/addLinks', {
     links: urls.join('\n'),
-    ...(packageName ? { packageName } : {}),
-    ...(destinationFolder ? { destinationFolder } : {}),
+    ...Object.fromEntries(Object.entries(options).filter(([, value]) => value)),
   })
   return job.id
 }

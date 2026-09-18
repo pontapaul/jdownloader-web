@@ -1,11 +1,13 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
+import { useExtractionStore } from './extraction'
 import {
   queryGrabberLinks,
   addLinks as apiAddLinks,
   confirmLinks as apiConfirmLinks,
   removeGrabberLinks,
   queryCrawlerJob,
+  type AddLinksOptions,
   type CrawlerJob,
   type GrabberLink,
 } from '../api/linkgrabber'
@@ -29,11 +31,13 @@ export const useLinkGrabberStore = defineStore('linkgrabber', () => {
    */
   async function addLinks(
     urls: string[],
-    packageName?: string,
-    destinationFolder?: string,
+    options: AddLinksOptions = {},
     timeoutMs = 60_000,
   ): Promise<CrawlerJob | null> {
-    const jobId = await apiAddLinks(urls, packageName, destinationFolder)
+    if (options.extractPassword) {
+      await useExtractionStore().rememberPasswords([options.extractPassword])
+    }
+    const jobId = await apiAddLinks(urls, options)
     const deadline = Date.now() + timeoutMs
     let job: CrawlerJob | null = null
     while (Date.now() < deadline) {

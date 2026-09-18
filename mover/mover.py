@@ -25,6 +25,8 @@ API_URL = os.environ.get("JD_API_URL", "http://jdownloader:3128")
 STAGING_DIR = os.environ.get("STAGING_DIR", "/output")
 LIBRARY_DIR = os.environ.get("LIBRARY_DIR", "/library")
 POLL_SECONDS = int(os.environ.get("POLL_SECONDS", "15"))
+# Start of the package comments written by the mover (the web UI recognizes it)
+COMMENT_PREFIX = "Spostamento:"
 
 EXTRACTION = (
     "org.jdownloader.extensions.extraction.ExtractionConfig",
@@ -39,6 +41,9 @@ JD_SETTINGS = [
     (*EXTRACTION, "CustomExtractionPathEnabled", False),
     (*EXTRACTION, "SubpathEnabled", False),
     (*EXTRACTION, "DeleteArchiveFilesAfterExtractionAction", "NULL"),
+    # Unknown password: fail right away instead of waiting (and holding the extraction
+    # queue) for a desktop dialog nobody sees; the web UI retries with a password
+    (*EXTRACTION, "AskForUnknownPasswordsEnabled", False),
     # Keep the links: their extraction status tells when the package is ready
     (*EXTRACTION, "DeleteArchiveDownloadlinksAfterExtraction", False),
     # Links added without a destination (e.g. from the JD2 GUI) end up in downloads
@@ -88,7 +93,7 @@ def readiness(package_uuid, links):
     """Return ("ready" | "wait" | "error", detail) for a finished package."""
     failed = [l["name"] for l in links if l.get("extractionStatus", "").startswith("ERR")]
     if failed:
-        return "error", "estrazione non riuscita: " + ", ".join(failed)
+        return "error", "estrazione non riuscita (password?): " + ", ".join(failed)
     if any(l.get("extractionStatus") not in (None, "SUCCESSFUL") for l in links):
         return "wait", "estrazione in corso"
     extracted = {l["name"] for l in links if l.get("extractionStatus") == "SUCCESSFUL"}
@@ -143,7 +148,7 @@ def report(package, message, reported):
         return
     reported[package["uuid"]] = message
     log(f"{package['name']}: {message}")
-    call("/downloadsV2/setComment", [], [package["uuid"]], False, f"Spostamento: {message}")
+    call("/downloadsV2/setComment", [], [package["uuid"]], False, f"{COMMENT_PREFIX} {message}")
 
 
 def poll(ready_before, reported):
@@ -165,6 +170,10 @@ def poll(ready_before, reported):
             report(package, detail, reported)
             continue
         if state == "wait":
+            # E.g. extracting again with a password: the old error no longer applies
+            if (package.get("comment") or "").startswith(COMMENT_PREFIX):
+                call("/downloadsV2/setComment", [], [uuid], False, "")
+                reported.pop(uuid, None)
             continue
         # Ready on two polls in a row: no surprises from half-updated states
         ready_now.add(uuid)
