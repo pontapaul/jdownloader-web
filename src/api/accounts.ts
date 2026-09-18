@@ -1,30 +1,42 @@
-import { jdFetch } from './client'
+import { jdCall } from './client'
 
-/** Validity states reported by JDownloader2 for a premium account. */
-export type AccountValidity = 'VALID' | 'INVALID' | 'EXPIRED' | 'TEMP_DISABLED' | 'UNKNOWN'
-
-/** A single premium account as returned by `/accountsV2/listAccounts`. */
+/**
+ * A single premium account as returned by `/accountsV2/listAccounts`.
+ *
+ * JD2 omits fields that have no value (e.g. traffic for unlimited accounts).
+ */
 export interface Account {
   /** Unique identifier of this account. */
   uuid: number
   /** Hosting service domain (e.g. `rapidgator.net`). */
-  hoster: string
+  hostname: string
   /** Login / username for this account. */
-  username: string
-  /** Current validity status. */
-  validUntil: number
+  username?: string
   /** Whether the account is currently enabled. */
   enabled: boolean
-  /** Traffic remaining in bytes (`-1` if unlimited or unknown). */
-  trafficLeft: number
-  /** Maximum traffic in bytes (`-1` if unlimited or unknown). */
-  trafficMax: number
-  /** Human-readable error message, if any. */
-  error: string | null
-  /** Account validity status. */
+  /** Whether JD2 considers the account valid. */
   valid: boolean
-  /** Account status string from JD2. */
-  status: string | null
+  /** Expiry timestamp (ms since epoch), if known. */
+  validUntil?: number
+  /** Traffic remaining in bytes, if limited. */
+  trafficLeft?: number
+  /** Maximum traffic in bytes, if limited. */
+  trafficMax?: number
+  /** Error type (e.g. `INVALID`, `EXPIRED`, `TEMP_DISABLED`), if any. */
+  errorType?: string
+  /** Human-readable error message, if any. */
+  errorString?: string
+}
+
+/** Fields requested from `/accountsV2/listAccounts` (JD2 returns only what is asked for). */
+const ACCOUNT_QUERY = {
+  userName: true,
+  enabled: true,
+  valid: true,
+  validUntil: true,
+  trafficLeft: true,
+  trafficMax: true,
+  error: true,
 }
 
 /**
@@ -33,9 +45,7 @@ export interface Account {
  * @returns Array of accounts with their current status information
  */
 export function listAccounts(): Promise<Account[]> {
-  return jdFetch<Account[]>('/accountsV2/listAccounts', {
-    method: 'GET',
-  })
+  return jdCall<Account[]>('/accountsV2/listAccounts', ACCOUNT_QUERY)
 }
 
 /**
@@ -46,10 +56,7 @@ export function listAccounts(): Promise<Account[]> {
  * @param password - Account password (transmitted in plain text to localhost)
  */
 export function addAccount(hoster: string, username: string, password: string): Promise<void> {
-  return jdFetch('/accountsV2/addAccount', {
-    method: 'POST',
-    body: JSON.stringify({ hoster, username, password }),
-  })
+  return jdCall('/accountsV2/addAccount', hoster, username, password)
 }
 
 /**
@@ -58,10 +65,7 @@ export function addAccount(hoster: string, username: string, password: string): 
  * @param accountIds - UUIDs of the accounts to remove
  */
 export function removeAccounts(accountIds: number[]): Promise<void> {
-  return jdFetch('/accountsV2/removeAccounts', {
-    method: 'POST',
-    body: JSON.stringify({ accountIds }),
-  })
+  return jdCall('/accountsV2/removeAccounts', accountIds)
 }
 
 /**
@@ -70,10 +74,7 @@ export function removeAccounts(accountIds: number[]): Promise<void> {
  * @param accountIds - UUIDs of the accounts to enable
  */
 export function enableAccounts(accountIds: number[]): Promise<void> {
-  return jdFetch('/accountsV2/enableAccounts', {
-    method: 'POST',
-    body: JSON.stringify({ accountIds }),
-  })
+  return jdCall('/accountsV2/enableAccounts', accountIds)
 }
 
 /**
@@ -82,10 +83,7 @@ export function enableAccounts(accountIds: number[]): Promise<void> {
  * @param accountIds - UUIDs of the accounts to disable
  */
 export function disableAccounts(accountIds: number[]): Promise<void> {
-  return jdFetch('/accountsV2/disableAccounts', {
-    method: 'POST',
-    body: JSON.stringify({ accountIds }),
-  })
+  return jdCall('/accountsV2/disableAccounts', accountIds)
 }
 
 /**
@@ -94,8 +92,5 @@ export function disableAccounts(accountIds: number[]): Promise<void> {
  * @param accountIds - UUIDs of the accounts to refresh
  */
 export function refreshAccounts(accountIds: number[]): Promise<void> {
-  return jdFetch('/accountsV2/refreshAccounts', {
-    method: 'POST',
-    body: JSON.stringify({ accountIds }),
-  })
+  return jdCall('/accountsV2/refreshAccounts', accountIds)
 }

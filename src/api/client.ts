@@ -5,13 +5,22 @@ export function setApiBaseUrl(url: string): void {
   BASE_URL = url
 }
 
+/** Error body returned by JD2 on failure (e.g. `{"src":"DEVICE","type":"BAD_PARAMETERS"}`). */
+interface JdErrorBody {
+  src?: string
+  type?: string
+  data?: unknown
+}
+
 /** Thrown when the server returns a non-2xx HTTP response. */
 export class JdApiError extends Error {
   constructor(
     public readonly status: number,
     public readonly statusText: string,
+    /** JD2 error type (e.g. `BAD_PARAMETERS`), when the body carries one. */
+    public readonly type?: string,
   ) {
-    super(`JD API error: ${status} ${statusText}`)
+    super(`JD API error: ${status} ${type ?? statusText}`)
     this.name = 'JdApiError'
   }
 }
@@ -26,47 +35,45 @@ export class JdOfflineError extends Error {
 }
 
 /**
- * Base fetch wrapper for the JDownloader Deprecated API.
+ * Call a JDownloader Deprecated API method.
  *
- * Reads the API base URL from the `VITE_JD_API_URL` environment variable,
- * falling back to `http://localhost:3128`.
+ * JD2 takes the method arguments positionally, in the order given by its
+ * documentation (`GET <base>/help`), as `POST {"params": [...]}`, and wraps
+ * the result as `{"data": ...}`.
  *
- * @param path - Endpoint path (e.g. `/jd/version`)
- * @param options - Optional `fetch` init options (method, body, …)
- * @returns Parsed JSON response typed as `T`
+ * @param path - Method path (e.g. `/accountsV2/addAccount`)
+ * @param params - Method arguments, in the documented order
+ * @returns The unwrapped `data` field of the response, typed as `T`
  * @throws {JdOfflineError} When the network request fails (host unreachable, CORS, …)
  * @throws {JdApiError} When the server returns a non-2xx status code
  */
-export async function jdFetch<T>(path: string, options?: RequestInit): Promise<T> {
+export async function jdCall<T>(path: string, ...params: unknown[]): Promise<T> {
   let response: Response
   try {
     response = await fetch(`${BASE_URL}${path}`, {
+      method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      ...options,
+      body: JSON.stringify({ params }),
     })
   } catch (err) {
     throw new JdOfflineError(err)
   }
   if (!response.ok) {
-    throw new JdApiError(response.status, response.statusText)
+    const body = (await response.json().catch(() => null)) as JdErrorBody | null
+    throw new JdApiError(response.status, response.statusText, body?.type)
   }
-  return response.json() as Promise<T>
-}
-
-/** JD2 version information returned by `/jd/version`. */
-export interface JdVersion {
-  /** JDownloader2 build number. */
-  version: number
+  const body = (await response.json()) as { data: T }
+  return body.data
 }
 
 /**
- * Fetch the JDownloader2 version.
+ * Fetch the JDownloader2 build number.
  *
  * Useful as a lightweight connectivity / health check — if this call succeeds,
  * the Deprecated API is reachable.
  *
- * @returns JD2 version object
+ * @returns JD2 build number
  */
-export function getJdVersion(): Promise<JdVersion> {
-  return jdFetch<JdVersion>('/jd/version')
+export function getJdVersion(): Promise<number> {
+  return jdCall<number>('/jd/version')
 }

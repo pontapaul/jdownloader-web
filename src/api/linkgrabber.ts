@@ -1,4 +1,4 @@
-import { jdFetch } from './client'
+import { jdCall } from './client'
 
 /** Availability status of a link in the grabber queue. */
 export type LinkAvailability = 'ONLINE' | 'OFFLINE' | 'TEMP_UNKNOWN' | 'UNKNOWN'
@@ -35,17 +35,39 @@ export interface QueryGrabberLinksParams {
   startAt?: number
 }
 
+/** Fields requested from `/linkgrabberv2/queryLinks` (JD2 returns only what is asked for). */
+const GRABBER_LINK_FIELDS = {
+  availability: true,
+  bytesTotal: true,
+  comment: true,
+  host: true,
+  url: true,
+}
+
+/** JD2 omits fields without a value: fill them in so every link has the full shape. */
+function normalizeGrabberLink(raw: Partial<GrabberLink> & Pick<GrabberLink, 'uuid' | 'name' | 'packageUUID'>): GrabberLink {
+  return {
+    url: '',
+    bytesTotal: -1,
+    host: '',
+    availability: 'UNKNOWN',
+    comment: null,
+    ...raw,
+  }
+}
+
 /**
  * Fetch the current Link Grabber queue.
  *
  * @param params - Optional filters (package/link UUIDs, pagination)
  * @returns Array of grabber links pending confirmation
  */
-export function queryGrabberLinks(params?: QueryGrabberLinksParams): Promise<GrabberLink[]> {
-  return jdFetch<GrabberLink[]>('/linkgrabberv2/queryLinks', {
-    method: 'POST',
-    body: JSON.stringify(params ?? {}),
+export async function queryGrabberLinks(params?: QueryGrabberLinksParams): Promise<GrabberLink[]> {
+  const links = await jdCall<Parameters<typeof normalizeGrabberLink>[0][]>('/linkgrabberv2/queryLinks', {
+    ...GRABBER_LINK_FIELDS,
+    ...params,
   })
+  return links.map(normalizeGrabberLink)
 }
 
 /**
@@ -56,13 +78,10 @@ export function queryGrabberLinks(params?: QueryGrabberLinksParams): Promise<Gra
  * @param destinationFolder - Optional download path override
  */
 export function addLinks(urls: string[], packageName?: string, destinationFolder?: string): Promise<void> {
-  return jdFetch('/linkgrabberv2/addLinks', {
-    method: 'POST',
-    body: JSON.stringify({
-      links: urls.join('\n'),
-      ...(packageName ? { packageName } : {}),
-      ...(destinationFolder ? { destinationFolder } : {}),
-    }),
+  return jdCall('/linkgrabberv2/addLinks', {
+    links: urls.join('\n'),
+    ...(packageName ? { packageName } : {}),
+    ...(destinationFolder ? { destinationFolder } : {}),
   })
 }
 
@@ -72,10 +91,7 @@ export function addLinks(urls: string[], packageName?: string, destinationFolder
  * @param linkIds - UUIDs of the grabber links to confirm
  */
 export function confirmLinks(linkIds: number[]): Promise<void> {
-  return jdFetch('/linkgrabberv2/confirmLinks', {
-    method: 'POST',
-    body: JSON.stringify({ linkIds }),
-  })
+  return jdCall('/linkgrabberv2/moveToDownloadlist', linkIds, [])
 }
 
 /**
@@ -84,8 +100,5 @@ export function confirmLinks(linkIds: number[]): Promise<void> {
  * @param linkIds - UUIDs of the grabber links to remove
  */
 export function removeGrabberLinks(linkIds: number[]): Promise<void> {
-  return jdFetch('/linkgrabberv2/removeLinks', {
-    method: 'POST',
-    body: JSON.stringify({ linkIds }),
-  })
+  return jdCall('/linkgrabberv2/removeLinks', linkIds, [])
 }

@@ -60,9 +60,9 @@ export const useAppStore = defineStore('app', () => {
   async function testConnection(): Promise<void> {
     connectionTestResult.value = null
     try {
-      const info = await getJdVersion()
+      const version = await getJdVersion()
       connected.value = true
-      connectionTestResult.value = { ok: true, version: info.version }
+      connectionTestResult.value = { ok: true, version }
     } catch (err) {
       connected.value = false
       connectionTestResult.value = {

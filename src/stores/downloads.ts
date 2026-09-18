@@ -5,7 +5,7 @@ import {
   queryLinks,
   setEnabled,
   removeLinks,
-  forcedDownload,
+  forceDownload,
   cleanup,
   type DownloadLink,
 } from '../api/downloads'
@@ -81,7 +81,7 @@ export const useDownloadsStore = defineStore('downloads', () => {
   }
 
   async function forceStart(uuid: number): Promise<void> {
-    await forcedDownload([uuid])
+    await forceDownload([uuid])
     await fetchLinks()
   }
 

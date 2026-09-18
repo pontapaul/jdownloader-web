@@ -64,7 +64,7 @@ async function confirmRemove() {
 function statusLabel(account: Account): string {
   if (!account.enabled) return 'Disabilitato'
   if (account.valid) return 'Valido'
-  if (account.status) return account.status
+  if (account.errorType) return account.errorType
   return 'Sconosciuto'
 }
 
@@ -75,7 +75,7 @@ function statusClass(account: Account): string {
 }
 
 function trafficLabel(account: Account): string {
-  if (account.trafficLeft < 0) return 'Illimitato'
+  if (account.trafficLeft === undefined || account.trafficLeft < 0) return 'Illimitato'
   return formatSize(account.trafficLeft)
 }
 
@@ -228,15 +228,15 @@ onMounted(() => {
             <!-- Hoster favicon -->
             <td class="px-2 py-1.5 text-center">
               <img
-                :src="`https://www.google.com/s2/favicons?sz=16&domain=${account.hoster}`"
-                :alt="account.hoster"
+                :src="`https://www.google.com/s2/favicons?sz=16&domain=${account.hostname}`"
+                :alt="account.hostname"
                 class="w-4 h-4 inline-block"
                 loading="lazy"
               />
             </td>
 
             <!-- Hoster -->
-            <td class="px-2 py-1.5 font-medium text-gray-800">{{ account.hoster }}</td>
+            <td class="px-2 py-1.5 font-medium text-gray-800">{{ account.hostname }}</td>
 
             <!-- Username -->
             <td class="px-2 py-1.5 text-gray-600 max-w-[160px] truncate" :title="account.username">
@@ -246,7 +246,7 @@ onMounted(() => {
             <!-- Status -->
             <td class="px-2 py-1.5">
               <span :class="statusClass(account)">{{ statusLabel(account) }}</span>
-              <span v-if="account.error" class="ml-1 text-red-400" :title="account.error">(!)</span>
+              <span v-if="account.errorString" class="ml-1 text-red-400" :title="account.errorString">(!)</span>
             </td>
 
             <!-- Traffic left -->
@@ -292,7 +292,7 @@ onMounted(() => {
         <p class="text-sm text-gray-600 mb-4">
           Vuoi rimuovere l'account
           <strong>{{ confirmRemoveAccount?.username }}</strong>
-          su <strong>{{ confirmRemoveAccount?.hoster }}</strong>?
+          su <strong>{{ confirmRemoveAccount?.hostname }}</strong>?
           Questa operazione non può essere annullata.
         </p>
         <div class="flex gap-2 justify-end">

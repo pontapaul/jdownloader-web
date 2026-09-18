@@ -1,4 +1,4 @@
-import { jdFetch } from './client'
+import { jdCall } from './client'
 
 /** Priority levels supported by JDownloader2. */
 export type DownloadPriority = 'HIGHEST' | 'HIGHER' | 'HIGH' | 'DEFAULT' | 'LOW' | 'LOWER' | 'LOWEST'
@@ -51,17 +51,55 @@ export interface QueryLinksParams {
   startAt?: number
 }
 
+/** Fields requested from `/downloadsV2/queryLinks` (JD2 returns only what is asked for). */
+const LINK_FIELDS = {
+  addedDate: true,
+  bytesLoaded: true,
+  bytesTotal: true,
+  comment: true,
+  enabled: true,
+  eta: true,
+  finished: true,
+  host: true,
+  priority: true,
+  running: true,
+  skipped: true,
+  speed: true,
+  status: true,
+}
+
+/** JD2 omits fields without a value: fill them in so every link has the full shape. */
+function normalizeLink(raw: Partial<DownloadLink> & Pick<DownloadLink, 'uuid' | 'name' | 'packageUUID'>): DownloadLink {
+  return {
+    host: '',
+    status: '',
+    bytesTotal: -1,
+    bytesLoaded: 0,
+    speed: 0,
+    eta: -1,
+    enabled: false,
+    priority: 'DEFAULT',
+    finished: false,
+    running: false,
+    skipped: false,
+    addedDate: 0,
+    comment: null,
+    ...raw,
+  }
+}
+
 /**
  * Fetch the current download list.
  *
  * @param params - Optional filters (package/link UUIDs, pagination)
  * @returns Array of download links with status, progress and speed information
  */
-export function queryLinks(params?: QueryLinksParams): Promise<DownloadLink[]> {
-  return jdFetch<DownloadLink[]>('/downloadsV2/queryLinks', {
-    method: 'POST',
-    body: JSON.stringify(params ?? {}),
+export async function queryLinks(params?: QueryLinksParams): Promise<DownloadLink[]> {
+  const links = await jdCall<Parameters<typeof normalizeLink>[0][]>('/downloadsV2/queryLinks', {
+    ...LINK_FIELDS,
+    ...params,
   })
+  return links.map(normalizeLink)
 }
 
 /**
@@ -71,10 +109,7 @@ export function queryLinks(params?: QueryLinksParams): Promise<DownloadLink[]> {
  * @param enabled - `true` to resume, `false` to pause
  */
 export function setEnabled(linkIds: number[], enabled: boolean): Promise<void> {
-  return jdFetch('/downloadsV2/setEnabled', {
-    method: 'POST',
-    body: JSON.stringify({ linkIds, enabled }),
-  })
+  return jdCall('/downloadsV2/setEnabled', enabled, linkIds, [])
 }
 
 /**
@@ -83,10 +118,7 @@ export function setEnabled(linkIds: number[], enabled: boolean): Promise<void> {
  * @param linkIds - UUIDs of the links to remove
  */
 export function removeLinks(linkIds: number[]): Promise<void> {
-  return jdFetch('/downloadsV2/removeLinks', {
-    method: 'POST',
-    body: JSON.stringify({ linkIds }),
-  })
+  return jdCall('/downloadsV2/removeLinks', linkIds, [])
 }
 
 /**
@@ -94,23 +126,24 @@ export function removeLinks(linkIds: number[]): Promise<void> {
  *
  * @param linkIds - UUIDs of the links to force-start
  */
-export function forcedDownload(linkIds: number[]): Promise<void> {
-  return jdFetch('/downloadsV2/forcedDownload', {
-    method: 'POST',
-    body: JSON.stringify({ linkIds }),
-  })
+export function forceDownload(linkIds: number[]): Promise<void> {
+  return jdCall('/downloadsV2/forceDownload', linkIds, [])
 }
 
 /**
- * Clean up finished and/or failed links from the download list.
+ * Remove finished links from the download list (files on disk are kept).
  *
- * When called without arguments all finished/failed links are removed.
+ * When called without arguments all finished links are removed.
  *
  * @param linkIds - Optional subset of link UUIDs to clean up
  */
 export function cleanup(linkIds?: number[]): Promise<void> {
-  return jdFetch('/downloadsV2/cleanup', {
-    method: 'POST',
-    body: JSON.stringify(linkIds ? { linkIds } : {}),
-  })
+  return jdCall(
+    '/downloadsV2/cleanup',
+    linkIds ?? [],
+    [],
+    'DELETE_FINISHED',
+    'REMOVE_LINKS_ONLY',
+    linkIds ? 'SELECTED' : 'ALL',
+  )
 }

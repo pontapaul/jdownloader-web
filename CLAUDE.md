@@ -34,27 +34,38 @@ The Deprecated API is the full MyJDownloader API exposed locally without authent
 Enable in JD2: Advanced Settings → search "RemoteAPI" → enable `deprecatedapienabled`.
 Base URL: `http://localhost:3128` (configurable via `VITE_JD_API_URL`).
 
-### Key endpoints
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/jd/version` | JD2 version + connectivity check |
-| GET | `/downloadsV2/queryLinks` | Full download list with status/progress |
-| POST | `/downloadsV2/setEnabled` | Pause or resume links |
-| POST | `/downloadsV2/removeLinks` | Remove links |
-| POST | `/downloadsV2/cleanup` | Clean finished/failed |
-| POST | `/downloadsV2/forcedDownload` | Force start |
-| GET | `/linkgrabberv2/queryLinks` | Links in grabber queue |
-| POST | `/linkgrabberv2/addLinks` | Add new URLs |
-| POST | `/linkgrabberv2/confirmLinks` | Move grabber links to download queue |
-| POST | `/linkgrabberv2/removeLinks` | Remove from grabber |
-| GET | `/accountsV2/listAccounts` | List all premium accounts with status/traffic |
-| POST | `/accountsV2/addAccount` | Add account (hoster, username, password) |
-| POST | `/accountsV2/removeAccounts` | Remove accounts by ID |
-| POST | `/accountsV2/enableAccounts` | Enable accounts by ID |
-| POST | `/accountsV2/disableAccounts` | Disable accounts by ID |
-| POST | `/accountsV2/refreshAccounts` | Force validity re-check |
+### Call format
+Every method is called as `POST <path>` with body `{"params": [arg1, arg2, ...]}`: arguments are
+**positional**, in the order listed by JD2's own documentation (`GET /help` on the API, e.g.
+`docker exec jdownloader-web wget -qO- http://jdownloader:3128/help`). Named-object bodies fail with
+`400 BAD_PARAMETERS`. Responses are wrapped as `{"data": ...}`; errors as `{"src","type","data"}`.
+`jdCall(path, ...params)` in `src/api/client.ts` handles both.
 
-All requests are plain JSON over HTTP. No authentication required.
+Query methods (`queryLinks`, `listAccounts`, …) return only the fields set to `true` in the query
+object, and JD2 omits fields without a value: the API wrappers fill in defaults.
+
+### Key endpoints (arguments in order)
+| Path | Arguments | Description |
+|------|-----------|-------------|
+| `/jd/version` | — | JD2 build number, connectivity check |
+| `/downloadsV2/queryLinks` | `LinkQuery` | Download list with status/progress |
+| `/downloadsV2/setEnabled` | `enabled, linkIds, packageIds` | Pause or resume |
+| `/downloadsV2/removeLinks` | `linkIds, packageIds` | Remove links |
+| `/downloadsV2/cleanup` | `linkIds, packageIds, action, mode, selectionType` | e.g. `DELETE_FINISHED`, `REMOVE_LINKS_ONLY`, `ALL` |
+| `/downloadsV2/forceDownload` | `linkIds, packageIds` | Force start |
+| `/linkgrabberv2/queryLinks` | `CrawledLinkQuery` | Links in grabber queue |
+| `/linkgrabberv2/addLinks` | `AddLinksQuery` (`{links, packageName, destinationFolder, …}`) | Add new URLs |
+| `/linkgrabberv2/moveToDownloadlist` | `linkIds, packageIds` | Move grabber links to download queue |
+| `/linkgrabberv2/removeLinks` | `linkIds, packageIds` | Remove from grabber |
+| `/accountsV2/listAccounts` | `AccountQuery` | Premium accounts with status/traffic |
+| `/accountsV2/addAccount` | `premiumHoster, username, password` | Add account |
+| `/accountsV2/removeAccounts` | `ids` | Remove accounts |
+| `/accountsV2/enableAccounts` / `disableAccounts` | `ids` | Enable / disable accounts |
+| `/accountsV2/refreshAccounts` | `ids` | Force validity re-check |
+| `/config/get` | `interfaceName, storage (null), key` | e.g. `GeneralSettings` / `DownloadSpeedLimit` |
+| `/config/set` | `interfaceName, storage (null), key, value` | Speed limit also needs `DownloadSpeedLimitEnabled` |
+
+No authentication is required.
 
 > **Security note**: Premium account credentials (username + password) are sent in plain text to
 > `localhost:3128`. This is acceptable because access is restricted to the VPN only, but be aware
