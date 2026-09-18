@@ -89,6 +89,13 @@ export const useAppStore = defineStore('app', () => {
   }
 
   const showAddLinksModal = ref(false)
+  /** Container files dropped on the window, picked up by the Add links dialog. */
+  const droppedFiles = ref<File[]>([])
+
+  function addContainerFiles(files: File[]): void {
+    droppedFiles.value = [...droppedFiles.value, ...files]
+    showAddLinksModal.value = true
+  }
 
   // ── Toast notifications ───────────────────────────────────────────────────
   const showCompletionToasts = ref(
@@ -126,6 +133,8 @@ export const useAppStore = defineStore('app', () => {
     fetchSpeedLimit,
     applySpeedLimit,
     showAddLinksModal,
+    droppedFiles,
+    addContainerFiles,
     showCompletionToasts,
     watchCompletionToasts,
     toasts,

@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import { useLinkGrabberStore } from '@/stores/linkgrabber'
+import { useAppStore } from '@/stores/app'
+import { CONTAINER_EXTENSIONS, containerDataUrl } from '@/api/linkgrabber'
 import { useDestination, type DestinationKind } from '@/composables/useDestination'
 
 const props = defineProps<{ modelValue: boolean }>()
@@ -9,10 +11,14 @@ const emit = defineEmits<{
 }>()
 
 const store = useLinkGrabberStore()
+const appStore = useAppStore()
 const { kind, title, show, season, packageName, movies, shows, loadLibrary, destination, reset } =
   useDestination()
 const urls = ref('')
 const password = ref('')
+/** Container files (DLC) to add, read as data URLs. */
+const containers = ref<{ name: string; dataUrl: string }[]>([])
+const fileInput = ref<HTMLInputElement | null>(null)
 const loading = ref(false)
 const errorMessage = ref('')
 const successMessage = ref('')
@@ -30,9 +36,41 @@ watch(
   },
 )
 
+async function addFiles(files: File[]) {
+  errorMessage.value = ''
+  for (const file of files) {
+    if (!CONTAINER_EXTENSIONS.some(ext => file.name.toLowerCase().endsWith(ext))) {
+      errorMessage.value = `${file.name}: si possono caricare solo file .dlc`
+      continue
+    }
+    if (containers.value.some(c => c.name === file.name)) continue
+    containers.value.push({ name: file.name, dataUrl: await containerDataUrl(file) })
+    // The file name is usually the release name: a good start for the movie title
+    if (kind.value === 'movies' && !title.value) title.value = file.name.replace(/\.[^.]+$/, '')
+  }
+}
+
+// Files dropped on the window (AppLayout) land here
+watch(
+  () => appStore.droppedFiles,
+  files => {
+    if (!files.length) return
+    appStore.droppedFiles = []
+    addFiles(files)
+  },
+  { immediate: true },
+)
+
+function onFilesPicked(event: Event) {
+  const input = event.target as HTMLInputElement
+  addFiles(Array.from(input.files ?? []))
+  input.value = ''
+}
+
 function close() {
   urls.value = ''
   password.value = ''
+  containers.value = []
   reset()
   errorMessage.value = ''
   successMessage.value = ''
@@ -49,7 +87,7 @@ async function submit() {
     .map(l => l.trim())
     .filter(Boolean)
   const target = destination.value
-  if (!lines.length || !target) return
+  if ((!lines.length && !containers.value.length) || !target) return
   loading.value = true
   errorMessage.value = ''
   successMessage.value = ''
@@ -58,9 +96,10 @@ async function submit() {
       packageName: target.packageName,
       destinationFolder: target.destinationFolder,
       extractPassword: password.value.trim() || undefined,
+      containers: containers.value.map(c => c.dataUrl),
     })
     if (!job) {
-      successMessage.value = `${lines.length} link inviati: JD2 li sta ancora analizzando`
+      successMessage.value = 'Link inviati: JD2 li sta ancora analizzando'
       setTimeout(close, 2000)
       return
     }
@@ -70,7 +109,7 @@ async function submit() {
       job.broken && `${job.broken} non analizzabili`,
     ].filter(Boolean)
     if (job.crawled === 0) {
-      errorMessage.value = `Nessun link aggiunto: ${skipped.join(', ') || 'JD2 non ha trovato file'}`
+      errorMessage.value = `Nessun link aggiunto: ${skipped.join(', ') || 'JD2 non ha trovato link (file DLC non valido?)'}`
       return
     }
     successMessage.value = `${job.crawled} link nel grabber` + (skipped.length ? ` · ${skipped.join(', ')}` : '')
@@ -101,7 +140,7 @@ async function submit() {
 
         <div class="p-4 space-y-3">
           <div>
-            <label class="block text-xs font-medium text-gray-700 mb-1">URL (uno per riga)</label>
+            <label class="block text-xs font-medium text-gray-700 mb-1">URL (uno per riga{{ containers.length ? ', opzionale' : '' }})</label>
             <textarea
               v-model="urls"
               rows="6"
@@ -110,6 +149,37 @@ async function submit() {
               autofocus
               @keydown.escape="close"
             />
+          </div>
+          <div>
+            <div class="flex items-center justify-between mb-1">
+              <span class="text-xs font-medium text-gray-700">File DLC</span>
+              <button
+                type="button"
+                class="px-2 py-0.5 text-xs rounded border border-gray-300 hover:bg-gray-100"
+                @click="fileInput?.click()"
+              >
+                Scegli file…
+              </button>
+              <input
+                ref="fileInput"
+                type="file"
+                :accept="CONTAINER_EXTENSIONS.join(',')"
+                multiple
+                class="hidden"
+                @change="onFilesPicked"
+              />
+            </div>
+            <ul v-if="containers.length" class="space-y-1">
+              <li
+                v-for="(c, i) in containers"
+                :key="c.name"
+                class="flex items-center gap-2 px-2 py-1 rounded bg-gray-100 text-xs"
+              >
+                <span class="flex-1 truncate font-mono" :title="c.name">{{ c.name }}</span>
+                <button class="text-gray-500 hover:text-red-600" title="Togli" @click="containers.splice(i, 1)">✕</button>
+              </li>
+            </ul>
+            <p v-else class="text-xs text-gray-400">Oppure trascina i file .dlc in qualsiasi punto della finestra</p>
           </div>
           <div>
             <label class="block text-xs font-medium text-gray-700 mb-1">Destinazione</label>
@@ -215,7 +285,7 @@ async function submit() {
           </button>
           <button
             class="px-3 py-1 text-xs rounded bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
-            :disabled="loading || !urls.trim() || !destination"
+            :disabled="loading || (!urls.trim() && !containers.length) || !destination"
             @click="submit"
           >
             {{ loading ? 'Analisi dei link...' : 'Aggiungi' }}

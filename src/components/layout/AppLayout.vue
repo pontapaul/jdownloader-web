@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { RouterView, useRoute, useRouter } from 'vue-router'
 import AppToolbar from './AppToolbar.vue'
 import AppTabs from './AppTabs.vue'
@@ -9,6 +9,7 @@ import PasswordModal from '@/components/modals/PasswordModal.vue'
 import { useAppStore } from '@/stores/app'
 import { useExtractionStore } from '@/stores/extraction'
 import { usePolling } from '@/composables/usePolling'
+import { CONTAINER_EXTENSIONS } from '@/api/linkgrabber'
 
 const appStore = useAppStore()
 const extractionStore = useExtractionStore()
@@ -29,8 +30,57 @@ function onGlobalKeydown(event: KeyboardEvent) {
   }
 }
 
-onMounted(() => window.addEventListener('keydown', onGlobalKeydown))
-onUnmounted(() => window.removeEventListener('keydown', onGlobalKeydown))
+// Drop DLC files anywhere in the window to add their links
+const dragging = ref(false)
+let dragDepth = 0
+
+function hasFiles(event: DragEvent): boolean {
+  return event.dataTransfer?.types.includes('Files') ?? false
+}
+
+function onDragEnter(event: DragEvent) {
+  if (!hasFiles(event)) return
+  event.preventDefault()
+  dragDepth++
+  dragging.value = true
+}
+
+function onDragOver(event: DragEvent) {
+  if (hasFiles(event)) event.preventDefault()
+}
+
+function onDragLeave(event: DragEvent) {
+  if (!hasFiles(event)) return
+  dragDepth = Math.max(0, dragDepth - 1)
+  if (dragDepth === 0) dragging.value = false
+}
+
+function onDrop(event: DragEvent) {
+  if (!hasFiles(event)) return
+  event.preventDefault()
+  dragDepth = 0
+  dragging.value = false
+  const files = Array.from(event.dataTransfer?.files ?? []).filter(f =>
+    CONTAINER_EXTENSIONS.some(ext => f.name.toLowerCase().endsWith(ext)),
+  )
+  if (files.length) appStore.addContainerFiles(files)
+  else appStore.addToast('Si possono rilasciare solo file .dlc')
+}
+
+onMounted(() => {
+  window.addEventListener('keydown', onGlobalKeydown)
+  window.addEventListener('dragenter', onDragEnter)
+  window.addEventListener('dragover', onDragOver)
+  window.addEventListener('dragleave', onDragLeave)
+  window.addEventListener('drop', onDrop)
+})
+onUnmounted(() => {
+  window.removeEventListener('keydown', onGlobalKeydown)
+  window.removeEventListener('dragenter', onDragEnter)
+  window.removeEventListener('dragover', onDragOver)
+  window.removeEventListener('dragleave', onDragLeave)
+  window.removeEventListener('drop', onDrop)
+})
 </script>
 
 <template>
@@ -65,6 +115,14 @@ onUnmounted(() => window.removeEventListener('keydown', onGlobalKeydown))
       </button>
     </nav>
     <AddLinksModal v-model="appStore.showAddLinksModal" />
+    <div
+      v-if="dragging"
+      class="fixed inset-0 z-[60] flex items-center justify-center bg-blue-600/20 border-4 border-dashed border-blue-500 pointer-events-none"
+    >
+      <div class="bg-white rounded-lg shadow-lg px-6 py-4 text-sm font-medium text-blue-700">
+        Rilascia i file .dlc per aggiungerne i link
+      </div>
+    </div>
     <PasswordModal
       :key="prompt?.id"
       :open="prompt !== null"

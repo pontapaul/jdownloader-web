@@ -7,6 +7,8 @@ import {
   confirmLinks as apiConfirmLinks,
   removeGrabberLinks,
   queryCrawlerJob,
+  jobPackages,
+  setDownloadDirectory,
   type AddLinksOptions,
   type CrawlerJob,
   type GrabberLink,
@@ -24,7 +26,11 @@ export const useLinkGrabberStore = defineStore('linkgrabber', () => {
   }
 
   /**
-   * Add links and wait until JD2 has crawled them.
+   * Add links and/or container files and wait until JD2 has crawled them.
+   *
+   * When both a destination folder and a package name are given, every package of
+   * the job is then saved exactly to `destinationFolder/packageName`: containers
+   * bring their own package names, and JD2 may split packages.
    *
    * @returns The finished crawler job (how many links were handled), or `null`
    *   if JD2 forgot the job or it is still running after `timeoutMs`
@@ -44,6 +50,12 @@ export const useLinkGrabberStore = defineStore('linkgrabber', () => {
       await new Promise(resolve => setTimeout(resolve, 1000))
       job = await queryCrawlerJob(jobId)
       if (!job || (!job.crawling && !job.checking)) break
+    }
+    if (options.destinationFolder && options.packageName) {
+      const packages = await jobPackages(jobId)
+      if (packages.length) {
+        await setDownloadDirectory(`${options.destinationFolder}/${options.packageName}`, packages)
+      }
     }
     await fetchLinks()
     return job && !job.crawling && !job.checking ? job : null

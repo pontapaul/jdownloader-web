@@ -12,6 +12,7 @@ A modern, self-hosted web interface for [JDownloader2](https://jdownloader.org/)
 - Real-time progress bars, speed, ETA, and file size display
 - Pause, resume, force-start, and remove downloads
 - Link Grabber tab to add and confirm new URLs
+- DLC containers: pick them in the Add links dialog or drop them anywhere in the window
 - Destination picker (movie, TV show + season, other): downloads and extraction happen on a fast
   staging disk, then `jdownloader-mover` moves the extracted content to the library
 - Archive passwords: set one when adding links, retry a failed extraction with a password, answer
@@ -66,6 +67,14 @@ package is moved only when every archive in it has been extracted.
 
 At startup the mover also sets the JD2 options it relies on: extract next to the archive, delete
 archive files after a successful extraction, default download folder `/output/downloads`.
+
+### DLC files
+
+DLC files are sent to JD2 as `data:application/dlc;base64,…` URLs in `addLinks.dataURLs` (JD2
+ignores them with a generic MIME type). A DLC brings its own package names, so after the crawl the
+dialog sets the exact destination folder on every package of the job
+(`assignJobID` → `queryLinks {jobUUIDs}` → `setDownloadDirectory`); the same happens for plain
+links, which also covers packages JD2 splits.
 
 ### Archive passwords
 

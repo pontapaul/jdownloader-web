@@ -94,21 +94,67 @@ export interface AddLinksOptions {
   destinationFolder?: string
   /** Password of the archives in these links. */
   extractPassword?: string
+  /** Container files (e.g. DLC) as data URLs, see {@link containerDataUrl}. */
+  containers?: string[]
+}
+
+/** Container file extensions JD2 can import (tested with DLC). */
+export const CONTAINER_EXTENSIONS = ['.dlc']
+
+/**
+ * Read a container file as the data URL JD2 expects.
+ *
+ * JD2 recognizes the container by the MIME type (`application/dlc`), which
+ * browsers do not set for these files.
+ */
+export function containerDataUrl(file: File): Promise<string> {
+  const extension = file.name.slice(file.name.lastIndexOf('.') + 1).toLowerCase()
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      const url = reader.result as string
+      resolve(`data:application/${extension};base64,${url.slice(url.indexOf(',') + 1)}`)
+    }
+    reader.onerror = () => reject(reader.error)
+    reader.readAsDataURL(file)
+  })
 }
 
 /**
- * Submit one or more URLs to the Link Grabber for processing.
+ * Submit URLs and/or container files to the Link Grabber for processing.
  *
- * @param urls - List of URLs to add
- * @param options - Package name, destination folder, archive password
+ * @param urls - List of URLs to add (may be empty when adding containers)
+ * @param options - Package name, destination folder, archive password, containers
  * @returns ID of the crawler job, to follow it with {@link queryCrawlerJob}
  */
 export async function addLinks(urls: string[], options: AddLinksOptions = {}): Promise<number> {
+  const { containers, ...rest } = options
   const job = await jdCall<{ id: number }>('/linkgrabberv2/addLinks', {
-    links: urls.join('\n'),
-    ...Object.fromEntries(Object.entries(options).filter(([, value]) => value)),
+    ...(urls.length ? { links: urls.join('\n') } : {}),
+    ...(containers?.length ? { dataURLs: containers } : {}),
+    ...Object.fromEntries(Object.entries(rest).filter(([, value]) => value)),
+    // Tag the links with the job ID, to find their packages with jobPackages()
+    assignJobID: true,
   })
   return job.id
+}
+
+/**
+ * UUIDs of the grabber packages holding the links of a crawler job.
+ *
+ * @param jobId - ID returned by {@link addLinks}
+ */
+export async function jobPackages(jobId: number): Promise<number[]> {
+  const links = await jdCall<{ packageUUID: number }[]>('/linkgrabberv2/queryLinks', { jobUUIDs: [jobId] })
+  return [...new Set(links.map(l => l.packageUUID))]
+}
+
+/**
+ * Set the exact download folder of grabber packages (unlike `addLinks`, JD2 does
+ * not append the package name).
+ */
+export function setDownloadDirectory(directory: string, packageIds: number[]): Promise<void> {
+  return jdCall('/linkgrabberv2/setDownloadDirectory', directory, packageIds)
 }
 
 /**

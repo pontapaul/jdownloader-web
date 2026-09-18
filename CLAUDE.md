@@ -34,6 +34,11 @@ Gotchas:
   the mover checks `extraction/getArchiveInfo` so it does not move unextracted archives.
 - `addLinks` succeeds even when no plugin handles the URLs: they are silently dropped. The dialog
   follows the job with `queryLinkCrawlerJobs` (`crawled`, `unhandled`, …) and reports the outcome.
+- DLC: `addLinks` with `dataURLs: ["data:application/dlc;base64,…"]` (with
+  `application/octet-stream` JD2 silently ignores the file). The DLC's package names win over
+  `packageName`: pass `assignJobID: true`, then `queryLinks {jobUUIDs}` works and
+  `setDownloadDirectory` fixes the folder. Test DLCs can only be made by the JD2 GUI
+  (Linkgrabber → right click → Other → Create DLC, through noVNC or xdotool).
 - Archive passwords: `addLinks` takes `extractPassword`; a retry is `extraction/setArchiveSettings`
   (`passwords`) + `extraction/startExtractionNow`. A manual extraction whose passwords are all
   wrong opens a password dialog even with `AskForUnknownPasswordsEnabled = false`, and the whole
