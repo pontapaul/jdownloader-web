@@ -32,6 +32,8 @@ Gotchas:
   gives `saveTo`. `setDownloadDirectory` sets the exact folder.
 - Right after a download finishes JD2 reports `finished` with no `extractionStatus` for a moment:
   the mover checks `extraction/getArchiveInfo` so it does not move unextracted archives.
+- `addLinks` succeeds even when no plugin handles the URLs: they are silently dropped. The dialog
+  follows the job with `queryLinkCrawlerJobs` (`crawled`, `unhandled`, …) and reports the outcome.
 - Right after a JD2 restart the API answers before the linkgrabber is ready: `addLinks` calls in
   the first seconds can be lost or show up late.
 

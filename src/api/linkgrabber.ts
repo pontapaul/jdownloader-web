@@ -70,19 +70,54 @@ export async function queryGrabberLinks(params?: QueryGrabberLinksParams): Promi
   return links.map(normalizeGrabberLink)
 }
 
+/** Progress of a link crawler job, as returned by `/linkgrabberv2/queryLinkCrawlerJobs`. */
+export interface CrawlerJob {
+  /** Links still being crawled. */
+  crawling: boolean
+  /** Links still being checked for availability. */
+  checking: boolean
+  /** Links sent to the Link Grabber. */
+  crawled: number
+  /** Links no plugin can handle (not a supported hoster or file URL). */
+  unhandled: number
+  /** Links dropped by a filter rule. */
+  filtered: number
+  /** Links whose crawl failed. */
+  broken: number
+}
+
 /**
  * Submit one or more URLs to the Link Grabber for processing.
  *
  * @param urls - List of URLs to add
  * @param packageName - Optional package name to group the links under
  * @param destinationFolder - Optional download path override
+ * @returns ID of the crawler job, to follow it with {@link queryCrawlerJob}
  */
-export function addLinks(urls: string[], packageName?: string, destinationFolder?: string): Promise<void> {
-  return jdCall('/linkgrabberv2/addLinks', {
+export async function addLinks(urls: string[], packageName?: string, destinationFolder?: string): Promise<number> {
+  const job = await jdCall<{ id: number }>('/linkgrabberv2/addLinks', {
     links: urls.join('\n'),
     ...(packageName ? { packageName } : {}),
     ...(destinationFolder ? { destinationFolder } : {}),
   })
+  return job.id
+}
+
+/**
+ * Fetch the progress of a crawler job.
+ *
+ * @param jobId - ID returned by {@link addLinks}
+ * @returns The job, or `null` if JD2 no longer knows it
+ */
+export async function queryCrawlerJob(jobId: number): Promise<CrawlerJob | null> {
+  const jobs = await jdCall<Partial<CrawlerJob>[]>('/linkgrabberv2/queryLinkCrawlerJobs', {
+    collectorInfo: true,
+    jobIds: [jobId],
+  })
+  const job = jobs[0]
+  if (!job) return null
+  // JD2 omits false and zero values
+  return { crawling: false, checking: false, crawled: 0, unhandled: 0, filtered: 0, broken: 0, ...job }
 }
 
 /**

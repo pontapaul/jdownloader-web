@@ -52,9 +52,23 @@ async function submit() {
   errorMessage.value = ''
   successMessage.value = ''
   try {
-    await store.addLinks(lines, target.packageName, target.destinationFolder)
-    successMessage.value = `${lines.length} link aggiunti al grabber`
-    setTimeout(close, 1200)
+    const job = await store.addLinks(lines, target.packageName, target.destinationFolder)
+    if (!job) {
+      successMessage.value = `${lines.length} link inviati: JD2 li sta ancora analizzando`
+      setTimeout(close, 2000)
+      return
+    }
+    const skipped = [
+      job.unhandled && `${job.unhandled} non riconosciuti (nessun plugin di JD2 li gestisce)`,
+      job.filtered && `${job.filtered} filtrati`,
+      job.broken && `${job.broken} non analizzabili`,
+    ].filter(Boolean)
+    if (job.crawled === 0) {
+      errorMessage.value = `Nessun link aggiunto: ${skipped.join(', ') || 'JD2 non ha trovato file'}`
+      return
+    }
+    successMessage.value = `${job.crawled} link nel grabber` + (skipped.length ? ` · ${skipped.join(', ')}` : '')
+    if (!skipped.length) setTimeout(close, 1200)
   } catch (err) {
     errorMessage.value = err instanceof Error ? err.message : 'Errore durante l\'aggiunta dei link'
   } finally {
@@ -185,7 +199,7 @@ async function submit() {
             :disabled="loading || !urls.trim() || !destination"
             @click="submit"
           >
-            {{ loading ? 'Aggiunta...' : 'Aggiungi' }}
+            {{ loading ? 'Analisi dei link...' : 'Aggiungi' }}
           </button>
         </div>
       </div>
