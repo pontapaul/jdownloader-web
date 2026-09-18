@@ -22,6 +22,19 @@ Nginx Proxy Manager (moon) — TLS termination
 **No backend server.** The Vue app calls the JDownloader Deprecated API directly.
 CORS is handled by Nginx proxying `/api/*` to JD2 on port 3128.
 
+The only server-side piece is `jdownloader-mover` (`mover/mover.py`, Python stdlib): it moves
+finished and extracted packages from the staging folder (`/output/<movies|shows|downloads>/…`) to
+the library (`/library/<same path>`), and enforces the JD2 settings it needs. See README
+"Download flow". The UI picks the destination via `useDestination` and passes it to `addLinks`.
+
+Gotchas:
+- `linkgrabberv2/addLinks` always appends the package name: `destinationFolder` + `packageName`
+  gives `saveTo`. `setDownloadDirectory` sets the exact folder.
+- Right after a download finishes JD2 reports `finished` with no `extractionStatus` for a moment:
+  the mover checks `extraction/getArchiveInfo` so it does not move unextracted archives.
+- Right after a JD2 restart the API answers before the linkgrabber is ready: `addLinks` calls in
+  the first seconds can be lost or show up late.
+
 ## Stack
 - **Frontend**: Vue 3 + TypeScript + Vite
 - **State**: Pinia
@@ -79,6 +92,7 @@ src/
     downloads.ts       # typed wrappers for downloadsV2 endpoints
     linkgrabber.ts     # typed wrappers for linkgrabberV2 endpoints
     accounts.ts        # typed wrappers for accountsV2 endpoints
+    library.ts         # folder listing of the library (nginx /library/)
   components/
     layout/
       AppToolbar.vue
@@ -105,6 +119,7 @@ src/
     app.ts             # useAppStore (connection status, settings)
   composables/
     usePolling.ts      # polling logic with Page Visibility API
+    useDestination.ts  # destination picker: movie / show + season / other
     useFormatters.ts   # speed, size, ETA formatters
   router/
     index.ts

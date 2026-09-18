@@ -102,6 +102,31 @@ export async function queryLinks(params?: QueryLinksParams): Promise<DownloadLin
   return links.map(normalizeLink)
 }
 
+/** A download package as returned by `/downloadsV2/queryPackages`. */
+export interface PackageInfo {
+  /** Unique identifier of this package. */
+  uuid: number
+  /** Package name. */
+  name: string
+  /** Folder the package is saved to, as seen by JD2 (e.g. `/output/movies/Dune`). */
+  saveTo: string
+  /** Comment attached to the package (jdownloader-mover writes its errors here). */
+  comment: string | null
+}
+
+/**
+ * Fetch name, save folder and comment of every download package.
+ *
+ * @returns Array of packages
+ */
+export async function queryPackages(): Promise<PackageInfo[]> {
+  const packages = await jdCall<(Partial<PackageInfo> & Pick<PackageInfo, 'uuid' | 'name'>)[]>(
+    '/downloadsV2/queryPackages',
+    { saveTo: true, comment: true },
+  )
+  return packages.map(p => ({ saveTo: '', comment: null, ...p }))
+}
+
 /**
  * Enable or disable (pause/resume) a set of download links.
  *

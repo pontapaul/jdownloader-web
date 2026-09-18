@@ -7,6 +7,7 @@ services:
       - "5800:5800" # GUI web di JDownloader2 (noVNC)
     volumes:
       - ./jd2-config:/config:rw
+      # Staging area (fast disk): downloads and extraction happen here
       - ${DOWNLOADS_DIR:-./downloads}:/output:rw
     environment:
       - USER_ID=${USER_ID:-1000}
@@ -26,6 +27,28 @@ services:
     container_name: jdownloader-web
     restart: unless-stopped
     # No published ports: the reverse proxy reaches it on the shared network
+    volumes:
+      # Read-only, for the destination picker (nginx lists folder names only)
+      - ${MOVIES_DIR:-./library/movies}:/library/movies:ro
+      - ${SHOWS_DIR:-./library/shows}:/library/shows:ro
+    networks:
+      - proxy
+
+  # Moves finished and extracted packages from the staging area to the library
+  jdownloader-mover:
+    build: ./mover
+    image: jdownloader-mover
+    container_name: jdownloader-mover
+    restart: unless-stopped
+    user: ${USER_ID:-1000}:${GROUP_ID:-1000}
+    environment:
+      - TZ=${TZ:-Europe/Rome}
+    volumes:
+      - ${DOWNLOADS_DIR:-./downloads}:/output:rw
+      # /output/<name>/... is moved to /library/<name>/...
+      - ${MOVIES_DIR:-./library/movies}:/library/movies:rw
+      - ${SHOWS_DIR:-./library/shows}:/library/shows:rw
+      - ${OTHER_DIR:-./library/downloads}:/library/downloads:rw
     networks:
       - proxy
 

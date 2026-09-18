@@ -3,20 +3,25 @@ import { ref, computed } from 'vue'
 import { useAppStore } from './app'
 import {
   queryLinks,
+  queryPackages,
   setEnabled,
   removeLinks,
   forceDownload,
   cleanup,
   type DownloadLink,
+  type PackageInfo,
 } from '../api/downloads'
 
 export interface DownloadPackage {
   uuid: number
   links: DownloadLink[]
+  /** Name, save folder and comment, when known. */
+  info?: PackageInfo
 }
 
 export const useDownloadsStore = defineStore('downloads', () => {
   const links = ref<DownloadLink[]>([])
+  const packageInfo = ref(new Map<number, PackageInfo>())
   let timer: ReturnType<typeof setInterval> | null = null
   /** UUIDs of links that were already finished on the last fetch. */
   const prevFinishedUuids = new Set<number>()
@@ -39,12 +44,17 @@ export const useDownloadsStore = defineStore('downloads', () => {
         map.set(link.packageUUID, [link])
       }
     }
-    return Array.from(map.entries()).map(([uuid, pkgLinks]) => ({ uuid, links: pkgLinks }))
+    return Array.from(map.entries()).map(([uuid, pkgLinks]) => ({
+      uuid,
+      links: pkgLinks,
+      info: packageInfo.value.get(uuid),
+    }))
   })
 
   async function fetchLinks(): Promise<void> {
     try {
-      const fresh = await queryLinks()
+      const [fresh, infos] = await Promise.all([queryLinks(), queryPackages()])
+      packageInfo.value = new Map(infos.map(p => [p.uuid, p]))
       // Detect newly completed downloads and fire toasts
       const appStore = useAppStore()
       if (appStore.showCompletionToasts) {

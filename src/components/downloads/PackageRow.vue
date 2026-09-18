@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import type { DownloadPackage } from '@/stores/downloads'
 import { useFormatters } from '@/composables/useFormatters'
+import { describeSaveTo } from '@/composables/useDestination'
 import ProgressBar from './ProgressBar.vue'
 
 const props = defineProps<{
@@ -18,9 +19,17 @@ defineEmits<{
 
 const { formatSpeed, formatSize, formatEta } = useFormatters()
 
-const packageName = computed(() =>
-  props.pkg.links.length > 0 ? props.pkg.links[0].name : `Pacchetto ${props.pkg.uuid}`,
+const packageName = computed(
+  () => props.pkg.info?.name ?? props.pkg.links[0]?.name ?? `Pacchetto ${props.pkg.uuid}`,
 )
+
+const destination = computed(() => describeSaveTo(props.pkg.info?.saveTo ?? ''))
+const nameTitle = computed(() =>
+  destination.value ? `${packageName.value}\n→ ${destination.value}` : packageName.value,
+)
+const comment = computed(() => props.pkg.info?.comment ?? null)
+/** jdownloader-mover could not move the package (it explains why in the comment). */
+const moveFailed = computed(() => comment.value?.startsWith('Spostamento:') ?? false)
 
 const totalSize = computed(() =>
   props.pkg.links.reduce((s, l) => s + Math.max(0, l.bytesTotal), 0),
@@ -38,6 +47,7 @@ const activeConnections = computed(() => props.pkg.links.filter(l => l.running).
 const allFinished = computed(() => props.pkg.links.every(l => l.finished))
 const anyRunning = computed(() => props.pkg.links.some(l => l.running))
 const anyError = computed(() =>
+  moveFailed.value ||
   props.pkg.links.some(l => l.status?.toLowerCase().includes('error') || l.skipped),
 )
 const allPaused = computed(() => props.pkg.links.every(l => !l.enabled && !l.finished))
@@ -48,8 +58,9 @@ const progress = computed(() => {
 })
 
 const statusText = computed(() => {
+  if (moveFailed.value) return 'Non spostato'
   if (anyError.value) return 'Errore'
-  if (allFinished.value) return 'Completato'
+  if (allFinished.value) return destination.value ? 'Da spostare' : 'Completato'
   if (allPaused.value) return 'In pausa'
   if (anyRunning.value) return 'Scaricamento'
   return 'In attesa'
@@ -98,7 +109,7 @@ const rowClass = computed(() => (props.selected ? 'bg-blue-100' : 'bg-gray-50 ho
             <path fill="currentColor" d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z" />
           </svg>
         </button>
-        <span class="truncate" :class="statusClass" :title="packageName">{{ packageName }}</span>
+        <span class="truncate" :class="statusClass" :title="nameTitle">{{ packageName }}</span>
         <span class="text-gray-400 font-normal shrink-0">({{ pkg.links.length }})</span>
       </div>
     </td>
@@ -109,7 +120,7 @@ const rowClass = computed(() => (props.selected ? 'bg-blue-100' : 'bg-gray-50 ho
     <td class="px-1 py-1 text-center hidden lg:table-cell text-gray-600">
       {{ activeConnections > 0 ? activeConnections : '—' }}
     </td>
-    <td class="px-1 py-1 whitespace-nowrap" :class="statusClass">
+    <td class="px-1 py-1 whitespace-nowrap" :class="statusClass" :title="comment ?? undefined">
       {{ statusText }}
     </td>
     <td class="px-1 py-1 text-right whitespace-nowrap hidden md:table-cell text-gray-600 font-mono">
@@ -124,6 +135,12 @@ const rowClass = computed(() => (props.selected ? 'bg-blue-100' : 'bg-gray-50 ho
     <td class="px-1 py-1 min-w-[80px]">
       <ProgressBar :value="progress" :color-class="progressColorClass" />
     </td>
-    <td class="px-1 py-1 hidden lg:table-cell text-gray-400 truncate max-w-[80px]">—</td>
+    <td
+      class="px-1 py-1 hidden lg:table-cell truncate max-w-[80px] font-normal"
+      :class="moveFailed ? 'text-red-500' : 'text-gray-500'"
+      :title="comment ?? undefined"
+    >
+      {{ comment || '—' }}
+    </td>
   </tr>
 </template>
