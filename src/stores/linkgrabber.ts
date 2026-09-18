@@ -32,12 +32,14 @@ export const useLinkGrabberStore = defineStore('linkgrabber', () => {
    * the job is then saved exactly to `destinationFolder/packageName`: containers
    * bring their own package names, and JD2 may split packages.
    *
+   * @param onProgress - Called with the job state while JD2 analyzes the links
    * @returns The finished crawler job (how many links were handled), or `null`
    *   if JD2 forgot the job or it is still running after `timeoutMs`
    */
   async function addLinks(
     urls: string[],
     options: AddLinksOptions = {},
+    onProgress?: (job: CrawlerJob) => void,
     timeoutMs = 60_000,
   ): Promise<CrawlerJob | null> {
     if (options.extractPassword) {
@@ -49,6 +51,7 @@ export const useLinkGrabberStore = defineStore('linkgrabber', () => {
     while (Date.now() < deadline) {
       await new Promise(resolve => setTimeout(resolve, 1000))
       job = await queryCrawlerJob(jobId)
+      if (job) onProgress?.(job)
       if (!job || (!job.crawling && !job.checking)) break
     }
     if (options.destinationFolder && options.packageName) {

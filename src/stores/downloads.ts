@@ -23,8 +23,8 @@ export const useDownloadsStore = defineStore('downloads', () => {
   const links = ref<DownloadLink[]>([])
   const packageInfo = ref(new Map<number, PackageInfo>())
   let timer: ReturnType<typeof setInterval> | null = null
-  /** UUIDs of links that were already finished on the last fetch. */
-  const prevFinishedUuids = new Set<number>()
+  /** UUIDs of the packages that were complete on the last fetch; `null` before the first one. */
+  let prevFinishedPackages: Set<number> | null = null
 
   /** True when every non-finished link is disabled (all paused/stopped). */
   const allPaused = computed(() =>
@@ -55,20 +55,26 @@ export const useDownloadsStore = defineStore('downloads', () => {
     try {
       const [fresh, infos] = await Promise.all([queryLinks(), queryPackages()])
       packageInfo.value = new Map(infos.map(p => [p.uuid, p]))
-      // Detect newly completed downloads and fire toasts
       const appStore = useAppStore()
-      if (appStore.showCompletionToasts) {
-        for (const link of fresh) {
-          if (link.finished && !prevFinishedUuids.has(link.uuid)) {
-            appStore.addToast(`Download completato: ${link.name}`)
-          }
+      // One toast per package when its last link finishes (not at page load,
+      // and not for every volume of a multi-part archive)
+      const byPackage = new Map<number, DownloadLink[]>()
+      for (const link of fresh) {
+        const pkgLinks = byPackage.get(link.packageUUID)
+        if (pkgLinks) pkgLinks.push(link)
+        else byPackage.set(link.packageUUID, [link])
+      }
+      const finishedPackages = new Set(
+        [...byPackage].filter(([, pkgLinks]) => pkgLinks.every(l => l.finished)).map(([uuid]) => uuid),
+      )
+      if (prevFinishedPackages && appStore.showCompletionToasts) {
+        for (const uuid of finishedPackages) {
+          if (prevFinishedPackages.has(uuid)) continue
+          const name = packageInfo.value.get(uuid)?.name ?? byPackage.get(uuid)?.[0]?.name
+          appStore.addToast(`Download completato: ${name}`)
         }
       }
-      // Update the set of known-finished UUIDs
-      prevFinishedUuids.clear()
-      for (const link of fresh) {
-        if (link.finished) prevFinishedUuids.add(link.uuid)
-      }
+      prevFinishedPackages = finishedPackages
       links.value = fresh
     } catch {
       // Silently fail; connection status is managed by useAppStore
