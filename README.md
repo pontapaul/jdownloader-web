@@ -60,6 +60,10 @@ them (the library never sees partial files), deletes the staging folder and remo
 from the list. It never overwrites: on a conflict or an extraction error the package stays in
 staging and the reason appears in its comment (status "Non spostato" in the web UI).
 
+Multi-part archives (`.partN.rar`, `.rar` + `.r00`…, `.7z.001`…) and packages with several
+archives (e.g. a season) are handled the same way: JD2 groups the volumes into one archive and the
+package is moved only when every archive in it has been extracted.
+
 At startup the mover also sets the JD2 options it relies on: extract next to the archive, delete
 archive files after a successful extraction, default download folder `/output/downloads`.
 

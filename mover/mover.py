@@ -16,6 +16,7 @@ the reason is written in its comment.
 """
 import json
 import os
+import re
 import shutil
 import time
 import urllib.error
@@ -89,11 +90,31 @@ def destination(save_to):
     return os.path.join(LIBRARY_DIR, rel)
 
 
+# Volume suffix of a multi-part archive: name.part01.rar, name.r00, name.7z.001, name.z01
+VOLUME_SUFFIX = re.compile(r"(\.part\d+\.rar|\.r\d\d|\.z\d\d|\.\d{3})$", re.IGNORECASE)
+
+
+def archive_names(file_names):
+    """Collapse the volumes of multi-part archives into one name each."""
+    split = {n: VOLUME_SUFFIX.search(n) for n in file_names}
+    multi = {n[: m.start()] for n, m in split.items() if m}
+    names = []
+    for name, match in split.items():
+        base = name[: match.start()] if match else name
+        # Old-style RAR: the first volume is plain name.rar, the next ones name.r00, name.r01…
+        if not match and name.lower().endswith(".rar") and name[:-4] in multi:
+            base = name[:-4]
+        label = f"{base} (più parti)" if base in multi else base
+        if label not in names:
+            names.append(label)
+    return names
+
+
 def readiness(package_uuid, links):
     """Return ("ready" | "wait" | "error", detail) for a finished package."""
     failed = [l["name"] for l in links if l.get("extractionStatus", "").startswith("ERR")]
     if failed:
-        return "error", "estrazione non riuscita (password?): " + ", ".join(failed)
+        return "error", "estrazione non riuscita (password?): " + ", ".join(archive_names(failed))
     if any(l.get("extractionStatus") not in (None, "SUCCESSFUL") for l in links):
         return "wait", "estrazione in corso"
     extracted = {l["name"] for l in links if l.get("extractionStatus") == "SUCCESSFUL"}
