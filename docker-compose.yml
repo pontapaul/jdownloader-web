@@ -4,16 +4,18 @@ services:
     container_name: jdownloader-2
     restart: unless-stopped
     ports:
-      - "5800:5800"
+      - "5800:5800" # GUI web di JDownloader2 (noVNC)
     volumes:
       - ./jd2-config:/config:rw
-      - ./downloads:/output:rw
+      - ${DOWNLOADS_DIR:-./downloads}:/output:rw
     environment:
       - USER_ID=${USER_ID:-1000}
       - GROUP_ID=${GROUP_ID:-1000}
       - TZ=${TZ:-Europe/Rome}
     networks:
-      - npm-nw
+      proxy:
+        # nginx.conf proxies /api/ to http://jdownloader:3128
+        aliases: [jdownloader]
 
   jdownloader-web:
     build:
@@ -23,11 +25,10 @@ services:
     image: jdownloader-web
     container_name: jdownloader-web
     restart: unless-stopped
-    ports:
-      - "80:80"
+    # No published ports: the reverse proxy reaches it on the shared network
     networks:
-      - npm-nw
+      - proxy
 
 networks:
-  npm-nw:
+  proxy:
     external: true

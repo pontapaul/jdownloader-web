@@ -26,7 +26,7 @@ A modern, self-hosted web interface for [JDownloader2](https://jdownloader.org/)
 Browser (VPN only)
    │ HTTPS
    ▼
-Nginx Proxy Manager — TLS termination
+Reverse proxy (Caddy) — TLS termination
    │ reverse proxy → jdownloader-web:80
    ▼
 [Docker] jdownloader-web — nginx:alpine serving Vue 3 build
@@ -35,7 +35,7 @@ Nginx Proxy Manager — TLS termination
 [Docker] JDownloader2 — Deprecated API on port 3128
 ```
 
-Both containers share the `jdownloader_net` Docker network. There is no backend server — the Vue app calls the JDownloader Deprecated API directly through the Nginx proxy.
+Both containers share the `proxy` Docker network. There is no backend server — the Vue app calls the JDownloader Deprecated API directly through the Nginx proxy.
 
 ---
 
@@ -61,13 +61,13 @@ The API will listen on `http://localhost:3128` by default.
 ### Step 1 — Create the shared Docker network (once)
 
 ```bash
-docker network create jdownloader_net
+docker network create proxy
 ```
 
 If your JD2 container is already running, connect it to the network:
 
 ```bash
-docker network connect jdownloader_net <jd2-container-name>
+docker network connect proxy <jd2-container-name>
 ```
 
 The JD2 container must be reachable as `jdownloader` on this network. If your container has a different name, update the upstream in `nginx.conf`.
