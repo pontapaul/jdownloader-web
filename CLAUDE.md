@@ -40,6 +40,12 @@ Gotchas:
   running download stay in the old folder (a running download finishes in the new one, though).
   That is why the mover does the move; a paused download resumes from its `.part` in the new
   folder as long as the hoster supports ranges.
+- Enabled links do not download while JD2's engine is stopped (`downloadcontroller/getCurrentState`
+  = `STOPPED_STATE`, e.g. after `stop`, or when the last *forced* download ended and nothing else
+  was started by `start`). Play must call `downloadcontroller/start`; enabling links is not enough.
+  `forceDownload` on a stopped engine runs only the forced links ("forced only" mode).
+- Never test with `forceDownload`/`removeLinks` while real downloads run: on 2026-10-28 such a
+  test session left the engine in `STOPPED_STATE` and the old play (links only) could not recover.
 - `config/set` answers `false` (no error) when a value is out of JD2's range: 1–20 for
   `MaxSimultaneDownloads` and `MaxChunksPerFile`, at least 1 for `MaxSimultaneDownloadsPerHost`
   (0 is not "unlimited").

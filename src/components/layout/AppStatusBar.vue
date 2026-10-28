@@ -12,6 +12,21 @@ const packageCount = computed(() => downloadsStore.packages.length)
 const linkCount = computed(() => downloadsStore.links.length)
 const activeConnections = computed(() => downloadsStore.links.filter(l => l.running).length)
 
+/** Label of JD2's download engine state, shown when it is not simply running. */
+const engineLabel = computed(() => {
+  switch (downloadsStore.controllerState) {
+    case 'STOPPED_STATE':
+    case 'IDLE':
+      return 'Download fermi'
+    case 'PAUSE':
+      return 'In pausa'
+    case 'STOPPING':
+      return 'Arresto…'
+    default:
+      return null
+  }
+})
+
 const remainingBytes = computed(() =>
   downloadsStore.links
     .filter(l => !l.finished && l.bytesTotal > 0)
@@ -42,6 +57,13 @@ const remainingBytes = computed(() =>
       <span class="ml-1 text-gray-800">{{ activeConnections }}</span>
     </span>
     <div class="flex-1"></div>
+    <span
+      v-if="engineLabel && appStore.connected"
+      class="font-sans text-xs text-yellow-800 bg-yellow-100 px-1.5 rounded"
+      title="Stato del motore di download di JD2: premi play per avviarlo"
+    >
+      {{ engineLabel }}
+    </span>
     <span
       :class="appStore.connected ? 'text-green-700' : 'text-red-600'"
       class="font-sans text-xs"

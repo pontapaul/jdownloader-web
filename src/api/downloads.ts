@@ -176,3 +176,26 @@ export function cleanup(linkIds?: number[]): Promise<void> {
     linkIds ? 'SELECTED' : 'ALL',
   )
 }
+
+/** State of JD2's download engine (`downloadcontroller/getCurrentState`). */
+export type ControllerState = 'IDLE' | 'RUNNING' | 'PAUSE' | 'STOPPING' | 'STOPPED_STATE'
+
+/**
+ * Fetch the state of JD2's download engine.
+ *
+ * `STOPPED_STATE` means no download runs even if links are enabled (e.g. after
+ * "stop", or after the last forced download finished): `startDownloads` is needed.
+ */
+export function getControllerState(): Promise<ControllerState> {
+  return jdCall<ControllerState>('/downloadcontroller/getCurrentState')
+}
+
+/** Start JD2's download engine (the "play" of the desktop UI). */
+export function startDownloads(): Promise<boolean> {
+  return jdCall<boolean>('/downloadcontroller/start')
+}
+
+/** Stop JD2's download engine: running downloads are aborted and keep their `.part`. */
+export function stopDownloads(): Promise<boolean> {
+  return jdCall<boolean>('/downloadcontroller/stop')
+}

@@ -10,7 +10,8 @@ A modern, self-hosted web interface for [JDownloader2](https://jdownloader.org/)
 
 - Download queue with package/link expand-collapse
 - Real-time progress bars, speed, ETA, and file size display
-- Pause, resume, force-start, and remove downloads
+- Pause, resume, force-start, and remove downloads; play/stop drive JD2's download engine, and
+  the status bar says when the engine is stopped
 - Link Grabber tab to add and confirm new URLs
 - DLC containers: pick them in the Add links dialog or drop them anywhere in the window
 - Destination picker (movie, TV show + season, other): downloads and extraction happen on a fast

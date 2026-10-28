@@ -46,9 +46,9 @@ onBeforeUnmount(() => {
     <button
       :class="[
         'p-1 rounded hover:bg-gray-300 active:bg-gray-400 disabled:opacity-40',
-        downloadsStore.allPaused ? 'text-green-700 bg-green-100' : 'text-gray-700',
+        downloadsStore.allPaused || downloadsStore.engineStopped ? 'text-green-700 bg-green-100' : 'text-gray-700',
       ]"
-      title="Avvia tutti"
+      :title="downloadsStore.engineStopped ? 'Avvia i download (JD2 è fermo)' : 'Avvia tutti'"
       @click="downloadsStore.resumeAll()"
     >
       <svg viewBox="0 0 24 24" class="w-5 h-5"><path fill="currentColor" d="M8 5v14l11-7z"/></svg>

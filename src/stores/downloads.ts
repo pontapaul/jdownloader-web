@@ -8,6 +8,10 @@ import {
   removeLinks,
   forceDownload,
   cleanup,
+  getControllerState,
+  startDownloads,
+  stopDownloads,
+  type ControllerState,
   type DownloadLink,
   type PackageInfo,
 } from '../api/downloads'
@@ -23,6 +27,12 @@ export interface DownloadPackage {
 export const useDownloadsStore = defineStore('downloads', () => {
   const links = ref<DownloadLink[]>([])
   const packageInfo = ref(new Map<number, PackageInfo>())
+  /** JD2's download engine: with `STOPPED_STATE` nothing runs, whatever the links say. */
+  const controllerState = ref<ControllerState | null>(null)
+  /** True when JD2's download engine is stopped (play is needed, not the links). */
+  const engineStopped = computed(
+    () => controllerState.value === 'STOPPED_STATE' || controllerState.value === 'IDLE',
+  )
   let timer: ReturnType<typeof setInterval> | null = null
   /** UUIDs of the packages that were complete on the last fetch; `null` before the first one. */
   let prevFinishedPackages: Set<number> | null = null
@@ -54,8 +64,13 @@ export const useDownloadsStore = defineStore('downloads', () => {
 
   async function fetchLinks(): Promise<void> {
     try {
-      const [fresh, infos] = await Promise.all([queryLinks(), queryPackages()])
+      const [fresh, infos, state] = await Promise.all([
+        queryLinks(),
+        queryPackages(),
+        getControllerState(),
+      ])
       packageInfo.value = new Map(infos.map(p => [p.uuid, p]))
+      controllerState.value = state
       const appStore = useAppStore()
       // One toast per package when its last link finishes (not at page load,
       // and not for every volume of a multi-part archive)
@@ -121,20 +136,20 @@ export const useDownloadsStore = defineStore('downloads', () => {
     }
   }
 
+  /** Enable every paused link and start JD2's download engine (the desktop "play"). */
   async function resumeAll(): Promise<void> {
     const ids = links.value.filter(l => !l.enabled && !l.finished).map(l => l.uuid)
-    if (ids.length) {
-      await setEnabled(ids, true)
-      await fetchLinks()
-    }
+    if (ids.length) await setEnabled(ids, true)
+    // Enabled links do not download while the engine is stopped (after "stop", or
+    // when the last forced download ended): this is what makes them start
+    await startDownloads()
+    await fetchLinks()
   }
 
+  /** Stop JD2's download engine; the links keep their state and resume with play. */
   async function stopAll(): Promise<void> {
-    const ids = links.value.filter(l => !l.finished).map(l => l.uuid)
-    if (ids.length) {
-      await setEnabled(ids, false)
-      await fetchLinks()
-    }
+    await stopDownloads()
+    await fetchLinks()
   }
 
   function handleVisibilityChange(): void {
@@ -171,6 +186,8 @@ export const useDownloadsStore = defineStore('downloads', () => {
   return {
     links,
     packages,
+    controllerState,
+    engineStopped,
     allPaused,
     hasActiveDownloads,
     fetchLinks,
