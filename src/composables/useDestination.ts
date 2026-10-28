@@ -34,6 +34,19 @@ export function describeSaveTo(saveTo: string): string | null {
   return [KIND_LABELS[kind as DestinationKind], ...rest].join(' / ')
 }
 
+/** Season folder name inside a show, e.g. `Stagione 2`. */
+const SEASON_FOLDER = /^Stagione (\d+)$/
+
+/**
+ * Exact folder of a package for a destination, e.g. `/output/movies/Dune`.
+ *
+ * @param fallbackName - Package name to use when the picker leaves the name to JD2
+ */
+export function destinationFolder(destination: Destination, fallbackName: string): string {
+  const name = destination.packageName ?? sanitize(fallbackName)
+  return name ? `${destination.destinationFolder}/${name}` : destination.destinationFolder
+}
+
 /** Make a name safe as a single folder name (and stable under JD2's package name rules). */
 function sanitize(name: string): string {
   return name
@@ -112,5 +125,40 @@ export function useDestination() {
     packageName.value = ''
   }
 
-  return { kind, title, show, season, packageName, movies, shows, loadLibrary, destination, reset }
+  /** Fill the picker from the folder a package is saved in (e.g. to change it). */
+  function setFromSaveTo(saveTo: string): void {
+    reset()
+    const parts = saveTo.startsWith(`${STAGING}/`)
+      ? saveTo.slice(STAGING.length + 1).split('/').filter(Boolean)
+      : []
+    const [root, first = '', second = ''] = parts
+    if (root === 'movies') {
+      kind.value = 'movies'
+      title.value = first
+    } else if (root === 'shows') {
+      kind.value = 'shows'
+      show.value = first
+      season.value = Number(SEASON_FOLDER.exec(second)?.[1] ?? 1)
+    } else {
+      kind.value = 'downloads'
+      packageName.value = root === 'downloads' ? first : ''
+    }
+  }
+
+  return {
+    kind,
+    title,
+    show,
+    season,
+    packageName,
+    movies,
+    shows,
+    loadLibrary,
+    destination,
+    reset,
+    setFromSaveTo,
+  }
 }
+
+/** The picker state returned by `useDestination`, shared with `DestinationFields`. */
+export type DestinationPicker = ReturnType<typeof useDestination>

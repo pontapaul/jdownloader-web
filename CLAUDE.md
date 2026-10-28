@@ -25,11 +25,24 @@ CORS is handled by Nginx proxying `/api/*` to JD2 on port 3128.
 The only server-side piece is `jdownloader-mover` (`mover/mover.py`, Python stdlib): it moves
 finished and extracted packages from the staging folder (`/output/<movies|shows|downloads>/…`) to
 the library (`/library/<same path>`), and enforces the JD2 settings it needs. See README
-"Download flow". The UI picks the destination via `useDestination` and passes it to `addLinks`.
+"Download flow". The UI picks the destination via `useDestination` (form in
+`DestinationFields.vue`) and passes it to `addLinks`.
+
+The mover also answers `POST /move {uuid, directory}` on port 8080 (nginx: `/mover/`), used by
+`MoveModal.vue` to change the destination of a package in the download list: it pauses the
+package's running downloads, renames the staging folder and calls `setDownloadDirectory`
+(README "Changing the destination"). The poll loop and the requests share a lock.
 
 Gotchas:
 - `linkgrabberv2/addLinks` always appends the package name: `destinationFolder` + `packageName`
   gives `saveTo`. `setDownloadDirectory` sets the exact folder.
+- `downloadsV2/setDownloadDirectory` only changes `saveTo`: extracted files and the `.part` of a
+  running download stay in the old folder (a running download finishes in the new one, though).
+  That is why the mover does the move; a paused download resumes from its `.part` in the new
+  folder as long as the hoster supports ranges.
+- `config/set` answers `false` (no error) when a value is out of JD2's range: 1–20 for
+  `MaxSimultaneDownloads` and `MaxChunksPerFile`, at least 1 for `MaxSimultaneDownloadsPerHost`
+  (0 is not "unlimited").
 - Right after a download finishes JD2 reports `finished` with no `extractionStatus` for a moment:
   the mover checks `extraction/getArchiveInfo` so it does not move unextracted archives.
 - `addLinks` succeeds even when no plugin handles the URLs: they are silently dropped. The dialog
@@ -92,7 +105,8 @@ object, and JD2 omits fields without a value: the API wrappers fill in defaults.
 | `/accountsV2/enableAccounts` / `disableAccounts` | `ids` | Enable / disable accounts |
 | `/accountsV2/refreshAccounts` | `ids` | Force validity re-check |
 | `/config/get` | `interfaceName, storage (null), key` | e.g. `GeneralSettings` / `DownloadSpeedLimit` |
-| `/config/set` | `interfaceName, storage (null), key, value` | Speed limit also needs `DownloadSpeedLimitEnabled` |
+| `/config/set` | `interfaceName, storage (null), key, value` | Speed limit also needs `DownloadSpeedLimitEnabled`; returns `false` when the value is rejected |
+| `/config/get` | `GeneralSettings`, `MaxSimultaneDownloads` / `MaxChunksPerFile` / `MaxSimultaneDownloadsPerHost` | Connection limits shown in Settings |
 
 No authentication is required.
 
@@ -109,6 +123,7 @@ src/
     linkgrabber.ts     # typed wrappers for linkgrabberV2 endpoints
     accounts.ts        # typed wrappers for accountsV2 endpoints
     library.ts         # folder listing of the library (nginx /library/)
+    mover.ts           # jdownloader-mover's /move (nginx /mover/)
   components/
     layout/
       AppToolbar.vue
@@ -122,7 +137,9 @@ src/
       GrabberRow.vue
     modals/
       AddLinksModal.vue
-    ui/                # generic reusable components
+      MoveModal.vue    # change a package's destination
+      PasswordModal.vue
+    ui/                # generic reusable components (DestinationFields, ToastNotification)
   views/
     DownloadsView.vue
     LinkGrabberView.vue

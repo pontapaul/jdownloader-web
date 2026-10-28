@@ -14,6 +14,7 @@ const props = defineProps<{
 defineEmits<{
   toggle: []
   password: []
+  move: []
   select: [event: MouseEvent]
   contextmenu: [event: MouseEvent]
 }>()
@@ -134,6 +135,14 @@ const rowClass = computed(() => (props.selected ? 'bg-blue-100' : 'bg-gray-50 ho
         @click.stop="$emit('password')"
       >
         Password
+      </button>
+      <button
+        v-if="moveFailed && !extractionFailed"
+        class="ml-1 px-1.5 rounded border border-red-300 text-red-600 font-normal hover:bg-red-50"
+        title="Scegli un'altra destinazione e riprova lo spostamento"
+        @click.stop="$emit('move')"
+      >
+        Destinazione
       </button>
     </td>
     <td class="px-1 py-1 text-right whitespace-nowrap hidden md:table-cell text-gray-600 font-mono">

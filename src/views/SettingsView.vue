@@ -3,6 +3,7 @@ import { ref, watch, onMounted } from 'vue'
 import { useAppStore } from '@/stores/app'
 import { useDownloadsStore } from '@/stores/downloads'
 import { useExtractionStore } from '@/stores/extraction'
+import type { DownloadLimits } from '@/api/config'
 
 const appStore = useAppStore()
 const downloadsStore = useDownloadsStore()
@@ -29,6 +30,37 @@ async function addPassword() {
 }
 
 onMounted(() => passwordAction(() => extractionStore.fetchPasswords()))
+
+// Connection limits (JD2 accepts 1–20 downloads and chunks, at least 1 per hoster)
+const limits: { key: keyof DownloadLimits; label: string; hint: string; min: number; max: number }[] = [
+  { key: 'maxDownloads', label: 'Download in contemporanea', hint: 'file scaricati insieme', min: 1, max: 20 },
+  { key: 'maxChunks', label: 'Connessioni per file', hint: 'segmenti dello stesso file; molti hoster ne ammettono meno', min: 1, max: 20 },
+  { key: 'maxPerHost', label: 'Download per hoster', hint: 'file scaricati insieme dallo stesso hoster', min: 1, max: 20 },
+]
+const limitsError = ref<string | null>(null)
+
+async function limitsAction(action: () => Promise<void>) {
+  limitsError.value = null
+  try {
+    await action()
+  } catch (err) {
+    limitsError.value = err instanceof Error ? err.message : 'Errore di JD2'
+  }
+}
+
+function handleLimitChange(limit: (typeof limits)[number], event: Event) {
+  const input = event.target as HTMLInputElement
+  const current = appStore.downloadLimits?.[limit.key]
+  const value = Math.round(Number(input.value))
+  if (!Number.isFinite(value) || value < limit.min || value > limit.max) {
+    input.value = String(current ?? limit.min)
+    return
+  }
+  if (value === current) return
+  limitsAction(() => appStore.applyDownloadLimit(limit.key, value))
+}
+
+onMounted(() => limitsAction(() => appStore.fetchDownloadLimits()))
 
 const apiUrlInput = ref(appStore.apiBaseUrl)
 const pollIntervalInput = ref(appStore.pollInterval)
@@ -109,6 +141,31 @@ watch(() => appStore.pollInterval, (val) => { pollIntervalInput.value = val })
         />
         <span class="text-gray-500">ms (500 – 10 000)</span>
       </label>
+    </section>
+
+    <!-- Connection limits -->
+    <section class="space-y-2">
+      <h2 class="text-sm font-semibold text-gray-700">Download e connessioni</h2>
+      <p class="text-xs text-gray-500">
+        Impostazioni di JDownloader2, valide subito per i download che partono.
+      </p>
+      <label v-for="limit in limits" :key="limit.key" class="block text-sm">
+        <span class="flex items-center gap-3">
+          <span class="text-gray-600 w-48 shrink-0">{{ limit.label }}</span>
+          <input
+            type="number"
+            :min="limit.min"
+            :max="limit.max"
+            step="1"
+            :value="appStore.downloadLimits?.[limit.key] ?? ''"
+            :disabled="!appStore.downloadLimits"
+            class="w-20 border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:bg-gray-50"
+            @change="handleLimitChange(limit, $event)"
+          />
+        </span>
+        <span class="block text-xs text-gray-500 mt-0.5">{{ limit.hint }}</span>
+      </label>
+      <p v-if="limitsError" class="text-xs text-red-600">{{ limitsError }}</p>
     </section>
 
     <!-- Archive passwords -->

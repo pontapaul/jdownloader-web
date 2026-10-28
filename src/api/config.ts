@@ -36,3 +36,39 @@ export async function setSpeedLimit(bytesPerSec: number): Promise<void> {
   }
   await setConfig('DownloadSpeedLimitEnabled', bytesPerSec > 0)
 }
+
+/** Connection limits of JD2 (Settings → Download & Connections in the desktop UI). */
+export interface DownloadLimits {
+  /** Downloads running at the same time (1–20). */
+  maxDownloads: number
+  /** Connections (chunks) per file (1–20); hosters may allow fewer. */
+  maxChunks: number
+  /** Downloads running at the same time on one hoster (at least 1). */
+  maxPerHost: number
+}
+
+const LIMIT_KEYS: Record<keyof DownloadLimits, string> = {
+  maxDownloads: 'MaxSimultaneDownloads',
+  maxChunks: 'MaxChunksPerFile',
+  maxPerHost: 'MaxSimultaneDownloadsPerHost',
+}
+
+/** Fetch the connection limits from JD2 config. */
+export async function getDownloadLimits(): Promise<DownloadLimits> {
+  const [maxDownloads, maxChunks, maxPerHost] = await Promise.all([
+    getConfig<number>(LIMIT_KEYS.maxDownloads),
+    getConfig<number>(LIMIT_KEYS.maxChunks),
+    getConfig<number>(LIMIT_KEYS.maxPerHost),
+  ])
+  return { maxDownloads, maxChunks, maxPerHost }
+}
+
+/**
+ * Set one connection limit in JD2 config.
+ *
+ * @throws {Error} When JD2 rejects the value (out of its allowed range)
+ */
+export async function setDownloadLimit(limit: keyof DownloadLimits, value: number): Promise<void> {
+  const accepted = await setConfig(LIMIT_KEYS[limit], value)
+  if (!accepted) throw new Error(`JD2 non accetta il valore ${value}`)
+}

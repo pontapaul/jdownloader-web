@@ -3,7 +3,8 @@ import { ref, computed, watch } from 'vue'
 import { useLinkGrabberStore } from '@/stores/linkgrabber'
 import { useAppStore } from '@/stores/app'
 import { CONTAINER_EXTENSIONS, containerDataUrl, type CrawlerJob } from '@/api/linkgrabber'
-import { useDestination, type DestinationKind } from '@/composables/useDestination'
+import { useDestination } from '@/composables/useDestination'
+import DestinationFields from '@/components/ui/DestinationFields.vue'
 
 const props = defineProps<{ modelValue: boolean }>()
 const emit = defineEmits<{
@@ -12,8 +13,8 @@ const emit = defineEmits<{
 
 const store = useLinkGrabberStore()
 const appStore = useAppStore()
-const { kind, title, show, season, packageName, movies, shows, loadLibrary, destination, reset } =
-  useDestination()
+const picker = useDestination()
+const { kind, title, loadLibrary, destination, reset } = picker
 
 /** Where the links come from: pasted URLs or DLC files. Only the active tab is sent. */
 type Source = 'links' | 'dlc'
@@ -33,12 +34,6 @@ const loading = ref(false)
 const progress = ref<CrawlerJob | null>(null)
 const errorMessage = ref('')
 const successMessage = ref('')
-
-const kinds: { value: DestinationKind; label: string }[] = [
-  { value: 'movies', label: 'Film' },
-  { value: 'shows', label: 'Serie TV' },
-  { value: 'downloads', label: 'Altro' },
-]
 
 const urlLines = computed(() =>
   urls.value
@@ -242,65 +237,7 @@ const inputClass =
             </ul>
           </div>
 
-          <div>
-            <label class="block text-xs font-medium text-gray-700 mb-1">Destinazione</label>
-            <div class="flex rounded border border-gray-300 overflow-hidden">
-              <button
-                v-for="k in kinds"
-                :key="k.value"
-                type="button"
-                class="flex-1 px-2 py-1 text-xs border-r last:border-r-0 border-gray-300"
-                :class="kind === k.value ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-100'"
-                @click="kind = k.value"
-              >
-                {{ k.label }}
-              </button>
-            </div>
-          </div>
-
-          <div v-if="kind === 'movies'">
-            <label class="block text-xs font-medium text-gray-700 mb-1">Titolo del film</label>
-            <input
-              v-model="title"
-              type="text"
-              list="library-movies"
-              :class="inputClass"
-              placeholder="Es. Dune - Parte due (2024)"
-            />
-            <datalist id="library-movies">
-              <option v-for="m in movies" :key="m" :value="m" />
-            </datalist>
-          </div>
-
-          <div v-else-if="kind === 'shows'" class="flex gap-2">
-            <div class="flex-1 min-w-0">
-              <label class="block text-xs font-medium text-gray-700 mb-1">Serie</label>
-              <input
-                v-model="show"
-                type="text"
-                list="library-shows"
-                :class="inputClass"
-                placeholder="Scegli o scrivi un nome nuovo"
-              />
-              <datalist id="library-shows">
-                <option v-for="s in shows" :key="s" :value="s" />
-              </datalist>
-            </div>
-            <div class="w-20">
-              <label class="block text-xs font-medium text-gray-700 mb-1">Stagione</label>
-              <input v-model.number="season" type="number" min="0" :class="inputClass" />
-            </div>
-          </div>
-
-          <div v-else>
-            <label class="block text-xs font-medium text-gray-700 mb-1">Nome pacchetto (opzionale)</label>
-            <input
-              v-model="packageName"
-              type="text"
-              :class="inputClass"
-              placeholder="Lascia vuoto per automatico"
-            />
-          </div>
+          <DestinationFields :picker="picker" />
 
           <div>
             <label class="block text-xs font-medium text-gray-700 mb-1">Password archivio (opzionale)</label>

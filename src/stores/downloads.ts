@@ -11,6 +11,7 @@ import {
   type DownloadLink,
   type PackageInfo,
 } from '../api/downloads'
+import { movePackage } from '../api/mover'
 
 export interface DownloadPackage {
   uuid: number
@@ -101,6 +102,12 @@ export const useDownloadsStore = defineStore('downloads', () => {
     await fetchLinks()
   }
 
+  /** Move a package (files included) to another staging folder, e.g. a different title. */
+  async function moveToFolder(uuid: number, directory: string): Promise<void> {
+    await movePackage(uuid, directory)
+    await fetchLinks()
+  }
+
   async function cleanFinished(): Promise<void> {
     await cleanup()
     await fetchLinks()
@@ -174,6 +181,7 @@ export const useDownloadsStore = defineStore('downloads', () => {
     stopAll,
     removeLink,
     forceStart,
+    moveToFolder,
     cleanFinished,
     startPolling,
     stopPolling,

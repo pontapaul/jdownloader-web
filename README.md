@@ -15,6 +15,11 @@ A modern, self-hosted web interface for [JDownloader2](https://jdownloader.org/)
 - DLC containers: pick them in the Add links dialog or drop them anywhere in the window
 - Destination picker (movie, TV show + season, other): downloads and extraction happen on a fast
   staging disk, then `jdownloader-mover` moves the extracted content to the library
+- Change the destination of a package from the download list (context menu, or the "Destinazione"
+  button of a package the mover could not deliver): its files move at once, running downloads
+  resume in the new folder
+- JD2 connection limits in Settings: simultaneous downloads, connections (chunks) per file,
+  downloads per hoster
 - Archive passwords: set one when adding links, retry a failed extraction with a password, answer
   JD2's password requests, manage the global password list in Settings
 - Bottom status bar: package/link counts, total speed, remaining bytes, active connections
@@ -36,13 +41,17 @@ Reverse proxy (Caddy) — TLS termination
    ▼
 [Docker] jdownloader-web — nginx:alpine serving Vue 3 build
    │ /api/* proxied to jdownloader:3128
+   │ /mover/* proxied to jdownloader-mover:8080
    ▼
 [Docker] JDownloader2 — Deprecated API on port 3128
    ▲ polls the API
-[Docker] jdownloader-mover — moves finished, extracted packages to the library
+[Docker] jdownloader-mover — moves finished, extracted packages to the library;
+                             moves a package to another folder on request (`POST /move`)
 ```
 
-All containers share the `proxy` Docker network. There is no backend server — the Vue app calls the JDownloader Deprecated API directly through the Nginx proxy.
+All containers share the `proxy` Docker network. There is no backend server — the Vue app calls the
+JDownloader Deprecated API directly through the Nginx proxy; the only server-side call of its own is
+the mover's `POST /mover/move`, used to change a package's destination.
 
 ### Download flow
 
@@ -67,6 +76,23 @@ package is moved only when every archive in it has been extracted.
 
 At startup the mover also sets the JD2 options it relies on: extract next to the archive, delete
 archive files after a successful extraction, default download folder `/output/downloads`.
+
+### Changing the destination
+
+"Cambia destinazione…" in the context menu of a package (or the "Destinazione" button of a package
+with status "Non spostato", e.g. after a name conflict in the library) opens the same picker as the
+"Add links" dialog. The web UI sends `POST /mover/move {uuid, directory}` to the mover, which:
+
+1. pauses the running downloads of the package and waits for JD2 to stop them (up to 30 s);
+2. renames the staging folder to the new one (same disk, instant; merges into an existing folder,
+   never overwriting a file);
+3. tells JD2 (`downloadsV2/setDownloadDirectory`) and resumes the paused downloads, which continue
+   from their `.part` files in the new folder;
+4. clears a previous "Spostamento:" comment, so the package gets a new try at the new destination.
+
+JD2 alone is not enough: its `setDownloadDirectory` only records the folder, it does not move the
+extracted files nor the `.part` of a running download. The mover is the component with the staging
+disk, so it does the move. Only folders the mover manages (`/output/<kind>/<name>…`) are accepted.
 
 ### DLC files
 

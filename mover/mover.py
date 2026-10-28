@@ -13,21 +13,35 @@ Packages saved anywhere else are left alone. A package is moved once it is finis
 every archive in it has been extracted; afterwards it is removed from the download list.
 Nothing is overwritten: on conflicts or extraction errors the package stays where it is and
 the reason is written in its comment.
+
+The web UI can also change where a package goes (`POST /move` on MOVER_PORT, proxied by nginx):
+the staging folder is renamed to the new place and JD2 is told about it, since JD2's own
+`setDownloadDirectory` only records the folder without moving files.
 """
 import json
 import os
 import re
 import shutil
+import threading
 import time
 import urllib.error
 import urllib.request
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 API_URL = os.environ.get("JD_API_URL", "http://jdownloader:3128")
 STAGING_DIR = os.environ.get("STAGING_DIR", "/output")
 LIBRARY_DIR = os.environ.get("LIBRARY_DIR", "/library")
 POLL_SECONDS = int(os.environ.get("POLL_SECONDS", "15"))
+MOVER_PORT = int(os.environ.get("MOVER_PORT", "8080"))
+# Seconds to wait for JD2 to stop the running downloads of a package before moving it
+STOP_TIMEOUT = 30
 # Start of the package comments written by the mover (the web UI recognizes it)
 COMMENT_PREFIX = "Spostamento:"
+
+# The poll loop and the move requests of the web UI never touch the files at the same time
+lock = threading.Lock()
+# Problems already shown in package comments (uuid -> message), logged once
+reported = {}
 
 EXTRACTION = (
     "org.jdownloader.extensions.extraction.ExtractionConfig",
@@ -163,7 +177,7 @@ def remove_staging(src):
         parent = os.path.dirname(parent)
 
 
-def report(package, message, reported):
+def report(package, message):
     """Log a problem once and show it in the package comment."""
     if reported.get(package["uuid"]) == message:
         return
@@ -172,7 +186,7 @@ def report(package, message, reported):
     call("/downloadsV2/setComment", [], [package["uuid"]], False, f"{COMMENT_PREFIX} {message}")
 
 
-def poll(ready_before, reported):
+def poll(ready_before):
     packages = call("/downloadsV2/queryPackages", {"saveTo": True, "finished": True, "comment": True})
     links = call("/downloadsV2/queryLinks", {"finished": True, "extractionStatus": True})
     by_package = {}
@@ -188,7 +202,7 @@ def poll(ready_before, reported):
         package_links = by_package.get(uuid, [])
         state, detail = readiness(uuid, package_links)
         if state == "error":
-            report(package, detail, reported)
+            report(package, detail)
             continue
         if state == "wait":
             # E.g. extracting again with a password: the old error no longer applies
@@ -206,7 +220,7 @@ def poll(ready_before, reported):
         try:
             moved = move_tree(src, dst, skip) if os.path.isdir(src) else 0
         except (MoveError, OSError) as error:
-            report(package, str(error), reported)
+            report(package, str(error))
             continue
         call("/downloadsV2/removeLinks", [], [uuid])
         remove_staging(src)
@@ -215,17 +229,150 @@ def poll(ready_before, reported):
     return ready_now
 
 
+class MoveRequestError(Exception):
+    """A move request the web UI can show to the user as is."""
+
+
+def managed_folder(directory):
+    """Normalize a package folder chosen in the web UI; it must be `<staging>/<kind>/<name>…`."""
+    directory = os.path.normpath(directory)
+    if not destination(directory) or os.path.relpath(directory, STAGING_DIR).count(os.sep) < 1:
+        raise MoveRequestError(f"cartella non gestita dal mover: {directory}")
+    return directory
+
+
+def move_folder(src, dst):
+    """Rename `src` to `dst` (same disk, no copy); merge into an existing `dst` without overwriting."""
+    if dst == src or dst.startswith(src + os.sep):
+        raise MoveRequestError("la nuova cartella è dentro quella attuale")
+    if not os.path.isdir(dst):
+        os.makedirs(os.path.dirname(dst), exist_ok=True)
+        os.rename(src, dst)
+        return
+    entries = os.listdir(src)
+    clashes = [name for name in entries if os.path.lexists(os.path.join(dst, name))]
+    if clashes:
+        raise MoveError(f"nella destinazione esiste già: {', '.join(sorted(clashes))}")
+    for name in entries:
+        os.rename(os.path.join(src, name), os.path.join(dst, name))
+    os.rmdir(src)
+
+
+def remove_empty_parents(path):
+    """Remove the empty folders left above a moved package, up to the kind folder."""
+    parent = os.path.dirname(os.path.normpath(path))
+    while os.path.relpath(parent, STAGING_DIR).count(os.sep) >= 1:
+        try:
+            os.rmdir(parent)
+        except OSError:
+            break
+        parent = os.path.dirname(parent)
+
+
+def running_links(uuid):
+    return [l for l in call("/downloadsV2/queryLinks", {"packageUUIDs": [uuid], "running": True}) if l.get("running")]
+
+
+def move_package(uuid, directory):
+    """Move the staging folder of a package to `directory` and point JD2 at it.
+
+    Running downloads are paused meanwhile and resume in the new folder.
+    """
+    directory = managed_folder(directory)
+    packages = call("/downloadsV2/queryPackages", {"packageUUIDs": [uuid], "saveTo": True, "comment": True})
+    if not packages:
+        raise MoveRequestError("pacchetto non trovato in JD2")
+    package = packages[0]
+    src = os.path.normpath(package.get("saveTo", ""))
+    if src == directory:
+        return
+    links = call("/downloadsV2/queryLinks", {"packageUUIDs": [uuid], "enabled": True, "finished": True})
+    paused = []
+    if running_links(uuid):
+        # Running downloads keep writing in the old folder: stop them while it moves
+        paused = [l["uuid"] for l in links if l.get("enabled") and not l.get("finished")]
+        call("/downloadsV2/setEnabled", False, paused, [])
+        deadline = time.monotonic() + STOP_TIMEOUT
+        while running_links(uuid):
+            if time.monotonic() > deadline:
+                call("/downloadsV2/setEnabled", True, paused, [])
+                raise MoveError("JD2 non ha fermato i download in corso")
+            time.sleep(0.5)
+    try:
+        if os.path.isdir(src):
+            move_folder(src, directory)
+            remove_empty_parents(src)
+        call("/downloadsV2/setDownloadDirectory", directory, [uuid])
+    finally:
+        if paused:
+            call("/downloadsV2/setEnabled", True, paused, [])
+    # A package that could not be moved to the library gets a new try at the new destination
+    if (package.get("comment") or "").startswith(COMMENT_PREFIX):
+        call("/downloadsV2/setComment", [], [uuid], False, "")
+        reported.pop(uuid, None)
+    log(f"{package.get('name', uuid)}: destinazione cambiata in {os.path.relpath(directory, STAGING_DIR)}")
+
+
+class MoveHandler(BaseHTTPRequestHandler):
+    """`POST /move {"uuid": <package>, "directory": "<staging folder>"}` from the web UI."""
+
+    def log_message(self, *args):
+        pass
+
+    def reply(self, status, payload):
+        body = json.dumps(payload).encode()
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def do_POST(self):
+        if self.path != "/move":
+            return self.reply(404, {"error": "not found"})
+        try:
+            body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))))
+            uuid, directory = int(body["uuid"]), str(body["directory"])
+        except (ValueError, KeyError, TypeError):
+            return self.reply(400, {"error": "richiesta non valida"})
+        if not lock.acquire(timeout=10):
+            return self.reply(503, {"error": "il mover sta spostando un altro pacchetto, riprova tra poco"})
+        try:
+            move_package(uuid, directory)
+        except MoveRequestError as error:
+            self.reply(400, {"error": str(error)})
+        except MoveError as error:
+            self.reply(409, {"error": str(error)})
+        except urllib.error.URLError as error:
+            self.reply(502, {"error": f"JD2 non raggiungibile: {error}"})
+        except (OSError, ValueError) as error:
+            log(f"spostamento richiesto dal pannello non riuscito: {error}")
+            self.reply(500, {"error": str(error)})
+        else:
+            self.reply(200, {"saveTo": directory})
+        finally:
+            lock.release()
+
+
+def serve_requests():
+    server = ThreadingHTTPServer(("", MOVER_PORT), MoveHandler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    log(f"richieste del pannello sulla porta {MOVER_PORT}")
+
+
 def main():
     log(f"mover: {STAGING_DIR} -> {LIBRARY_DIR} ({', '.join(sorted(os.listdir(LIBRARY_DIR)))})")
+    serve_requests()
     connected = False
-    ready, reported = set(), {}
+    ready = set()
     while True:
         try:
             if not connected:
                 apply_settings()
                 connected = True
                 log("JD2 raggiungibile")
-            ready = poll(ready, reported)
+            with lock:
+                ready = poll(ready)
         except (urllib.error.URLError, OSError, ValueError) as error:
             if connected:
                 log(f"JD2 non raggiungibile: {error}")

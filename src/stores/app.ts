@@ -1,7 +1,13 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { getJdVersion, setApiBaseUrl } from '../api/client'
-import { getSpeedLimit, setSpeedLimit } from '../api/config'
+import {
+  getSpeedLimit,
+  setSpeedLimit,
+  getDownloadLimits,
+  setDownloadLimit,
+  type DownloadLimits,
+} from '../api/config'
 import { useDownloadsStore } from './downloads'
 
 export interface Toast {
@@ -88,6 +94,18 @@ export const useAppStore = defineStore('app', () => {
     speedLimit.value = bytesPerSec
   }
 
+  /** JD2 connection limits (simultaneous downloads, chunks per file, …); `null` until fetched. */
+  const downloadLimits = ref<DownloadLimits | null>(null)
+
+  async function fetchDownloadLimits(): Promise<void> {
+    downloadLimits.value = await getDownloadLimits()
+  }
+
+  async function applyDownloadLimit(limit: keyof DownloadLimits, value: number): Promise<void> {
+    await setDownloadLimit(limit, value)
+    if (downloadLimits.value) downloadLimits.value[limit] = value
+  }
+
   const showAddLinksModal = ref(false)
   /** Container files dropped on the window, picked up by the Add links dialog. */
   const droppedFiles = ref<File[]>([])
@@ -132,6 +150,9 @@ export const useAppStore = defineStore('app', () => {
     testConnection,
     fetchSpeedLimit,
     applySpeedLimit,
+    downloadLimits,
+    fetchDownloadLimits,
+    applyDownloadLimit,
     showAddLinksModal,
     droppedFiles,
     addContainerFiles,

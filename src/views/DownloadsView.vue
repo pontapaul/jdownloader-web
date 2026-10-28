@@ -4,6 +4,7 @@ import { useDownloadsStore } from '@/stores/downloads'
 import PackageRow from '@/components/downloads/PackageRow.vue'
 import LinkRow from '@/components/downloads/LinkRow.vue'
 import PasswordModal from '@/components/modals/PasswordModal.vue'
+import MoveModal, { type MoveTarget } from '@/components/modals/MoveModal.vue'
 import { useExtractionStore } from '@/stores/extraction'
 
 const store = useDownloadsStore()
@@ -27,6 +28,19 @@ async function submitPassword(password: string) {
     await store.fetchLinks()
   } catch (err) {
     passwordError.value = err instanceof Error ? err.message : 'Errore durante l\'estrazione'
+  }
+}
+
+// Change the destination of a package
+const moveTarget = ref<MoveTarget | null>(null)
+
+function askMove(pkgUuid: number) {
+  const pkg = store.packages.find(p => p.uuid === pkgUuid)
+  if (!pkg) return
+  moveTarget.value = {
+    uuid: pkgUuid,
+    name: pkg.info?.name ?? pkg.links[0]?.name ?? '',
+    saveTo: pkg.info?.saveTo ?? '',
   }
 }
 
@@ -127,6 +141,10 @@ async function contextAction(action: string) {
     askPassword(uuid)
     return
   }
+  if (type === 'package' && action === 'move') {
+    askMove(uuid)
+    return
+  }
   if (type === 'link') {
     if (action === 'resume') await store.resumeLink(uuid)
     else if (action === 'pause') await store.pauseLink(uuid)
@@ -172,6 +190,7 @@ async function contextAction(action: string) {
             @select="selectPackage(pkg.uuid, $event)"
             @contextmenu="showContextMenu($event, 'package', pkg.uuid)"
             @password="askPassword(pkg.uuid)"
+            @move="askMove(pkg.uuid)"
           />
           <template v-if="expandedPackages.has(pkg.uuid)">
             <LinkRow
@@ -224,6 +243,13 @@ async function contextAction(action: string) {
       >
         Password archivio…
       </button>
+      <button
+        v-if="contextMenu.type === 'package'"
+        class="w-full text-left px-3 py-1.5 hover:bg-gray-100"
+        @click="contextAction('move')"
+      >
+        Cambia destinazione…
+      </button>
       <div class="h-px bg-gray-200 my-1"></div>
       <button
         class="w-full text-left px-3 py-1.5 hover:bg-gray-100 text-red-600"
@@ -241,5 +267,7 @@ async function contextAction(action: string) {
       @submit="submitPassword"
       @cancel="passwordPackage = null"
     />
+
+    <MoveModal :open="moveTarget !== null" :pkg="moveTarget" @close="moveTarget = null" />
   </div>
 </template>
